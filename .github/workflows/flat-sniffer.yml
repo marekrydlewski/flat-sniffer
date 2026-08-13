@@ -5,6 +5,10 @@ on:
     - cron: "0 8 * * 1" # every Monday, 08:00 UTC
   workflow_dispatch: {}
 
+concurrency:
+  group: flat-sniffer
+  cancel-in-progress: false
+
 permissions:
   contents: write
   issues: write
@@ -15,12 +19,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.12"
 
       - name: Run flat-sniffer
-        run: python3 flat_sniffer.py --quiet --events-out events.json
+        run: uv run flat_sniffer.py --quiet --events-out events.json
 
       - name: Open issue if something changed
         env:
@@ -28,7 +32,7 @@ jobs:
         run: |
           count=$(python3 -c 'import json; print(len(json.load(open("events.json"))))')
           if [ "$count" != "0" ]; then
-            python3 format_issue.py events.json > issue_body.md
+            uv run format_issue.py events.json > issue_body.md
             gh issue create --title "flat-sniffer: $(date -u +%Y-%m-%d) - $count change(s)" --body-file issue_body.md
           else
             echo "No changes, skipping issue."
@@ -41,3 +45,12 @@ jobs:
           git add registry.json history.log
           git diff --cached --quiet || git commit -m "Update registry [skip ci]"
           git push
+
+      - name: Notify on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create \
+            --title "flat-sniffer: check failed on $(date -u +%Y-%m-%d)" \
+            --body "The scheduled run failed before completing (network error, corrupted registry, or a suspicious/degraded scrape). Registry was NOT updated. Logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
