@@ -1,0 +1,5 @@
+registry.json
+history.log
+cron.log
+__pycache__/
+*.pyc
