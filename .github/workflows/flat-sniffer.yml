@@ -16,6 +16,7 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -25,6 +26,14 @@ jobs:
 
       - name: Run flat-sniffer
         run: uv run flat_sniffer.py --quiet --events-out events.json
+
+      - name: Commit updated registry
+        run: |
+          git config user.name "flat-sniffer-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add registry.json history.log
+          git diff --cached --quiet || git commit -m "Update registry [skip ci]"
+          git push
 
       - name: Open issue if something changed
         env:
@@ -38,14 +47,6 @@ jobs:
             echo "No changes, skipping issue."
           fi
 
-      - name: Commit updated registry
-        run: |
-          git config user.name "flat-sniffer-bot"
-          git config user.email "actions@users.noreply.github.com"
-          git add registry.json history.log
-          git diff --cached --quiet || git commit -m "Update registry [skip ci]"
-          git push
-
       - name: Notify on failure
         if: failure()
         env:
@@ -53,4 +54,4 @@ jobs:
         run: |
           gh issue create \
             --title "flat-sniffer: check failed on $(date -u +%Y-%m-%d)" \
-            --body "The scheduled run failed before completing (network error, corrupted registry, or a suspicious/degraded scrape). Registry was NOT updated. Logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            --body "The scheduled run failed before completing (network error, corrupted registry, a suspicious/degraded scrape, or a failed issue post). Check the run log to see whether the registry was updated before the failure. Logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

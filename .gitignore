@@ -1,4 +1,3 @@
-cron.log
 events.json
 __pycache__/
 *.pyc

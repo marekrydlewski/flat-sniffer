@@ -19,6 +19,8 @@ import argparse
 import json
 import re
 import sys
+import time
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -67,25 +69,36 @@ DODATKOWE_RE = re.compile(
 EXTRA_ITEM_RE = re.compile(r'<div class="h4 fs-20 m-0 text-dark">\s*([^<]+?)\s*</div>')
 
 
+FETCH_ATTEMPTS = 3
+
+
 def fetch(id_typ: int) -> str:
     url = f"{BASE_URL}?sort=0&limit=500&id_typ=&id_typ={id_typ}"
-    try:
-        resp = httpx.get(url, headers={"User-Agent": USER_AGENT}, timeout=30, follow_redirects=True)
-        resp.raise_for_status()
-        return resp.text
-    except httpx.HTTPError as e:
-        raise RuntimeError(f"failed to fetch id_typ={id_typ} ({url}): {e}") from e
+    last_exc = None
+    for attempt in range(FETCH_ATTEMPTS):
+        try:
+            resp = httpx.get(url, headers={"User-Agent": USER_AGENT}, timeout=30, follow_redirects=True)
+            resp.raise_for_status()
+            return resp.text
+        except httpx.HTTPError as e:
+            last_exc = e
+            if attempt < FETCH_ATTEMPTS - 1:
+                time.sleep(2**attempt)
+    raise RuntimeError(f"failed to fetch id_typ={id_typ} ({url}) after {FETCH_ATTEMPTS} attempts: {last_exc}") from last_exc
 
 
-def parse_offers(html: str) -> list[dict]:
+def parse_offers(html: str) -> tuple[list[dict], int]:
+    """Returns (parsed offers, number of listing chunks that failed to parse)."""
     chunks = re.split(r'(?=<a class="target-row)', html)
     offers = []
+    failed = 0
     for chunk in chunks:
         if not chunk.startswith('<a class="target-row'):
             continue
         head = HEAD_RE.search(chunk)
         status = STATUS_RE.search(chunk)
         if not head or not status:
+            failed += 1
             continue
 
         price_m = PRICE_RE.search(chunk)
@@ -114,20 +127,37 @@ def parse_offers(html: str) -> list[dict]:
                 "extras": extras,
             }
         )
-    return offers
+    return offers, failed
 
 
-def fetch_all() -> dict[str, dict]:
+PARSE_FAILURE_RATIO = 0.1  # abort if >=10% of a category's listing chunks fail to parse
+
+
+def fetch_all() -> tuple[dict[str, dict], list[str]]:
     registry = {}
+    problems = []
     for id_typ, label in CATEGORIES.items():
         html = fetch(id_typ)
-        offers = parse_offers(html)
+        offers, failed = parse_offers(html)
+        total_chunks = len(offers) + failed
+        if failed:
+            ratio = failed / total_chunks if total_chunks else 1.0
+            print(f"WARNING: category '{label}': {failed}/{total_chunks} listing(s) "
+                  f"failed to parse (regex mismatch)", file=sys.stderr)
+            if ratio >= PARSE_FAILURE_RATIO:
+                problems.append(
+                    f"category '{label}': {failed}/{total_chunks} listings failed to "
+                    f"parse ({ratio:.0%}) - looks like a markup change, not real sales"
+                )
         if len(offers) >= 500:
             print(f"WARNING: category '{label}' returned {len(offers)} offers "
                   f"(possible truncation at limit=500)", file=sys.stderr)
         for o in offers:
             registry[o["id"]] = o
-    return registry
+    return registry, problems
+
+
+REQUIRED_OFFER_KEYS = {"category", "unit", "status", "url"}
 
 
 def load_registry() -> dict:
@@ -135,16 +165,25 @@ def load_registry() -> dict:
         return {}
     with REGISTRY_PATH.open("r", encoding="utf-8") as f:
         try:
-            return json.load(f)
+            data = json.load(f)
         except json.JSONDecodeError as e:
             raise RuntimeError(
                 f"{REGISTRY_PATH} is corrupted ({e}); refusing to continue without a trustworthy baseline"
             ) from e
+    for oid, o in data.items():
+        if not isinstance(o, dict) or not REQUIRED_OFFER_KEYS.issubset(o):
+            raise RuntimeError(
+                f"{REGISTRY_PATH} entry '{oid}' is missing required fields "
+                f"({REQUIRED_OFFER_KEYS}); refusing to continue without a trustworthy baseline"
+            )
+    return data
 
 
 def save_registry(registry: dict) -> None:
-    with REGISTRY_PATH.open("w", encoding="utf-8") as f:
+    tmp_path = REGISTRY_PATH.with_suffix(".json.tmp")
+    with tmp_path.open("w", encoding="utf-8") as f:
         json.dump(registry, f, ensure_ascii=False, indent=2, sort_keys=True)
+    tmp_path.replace(REGISTRY_PATH)
 
 
 def append_history(events: list[dict]) -> None:
@@ -156,19 +195,31 @@ def append_history(events: list[dict]) -> None:
             f.write(json.dumps(e, ensure_ascii=False) + "\n")
 
 
+SANITY_MIN_ABSOLUTE_DROP = 3  # ignore small categories where a real bulk sale could hit this
+SANITY_MIN_RATIO_DROP = 0.5  # and require the drop to be at least this severe, relatively
+
+
 def sanity_check(old: dict, new: dict) -> list[str]:
     """Returns a list of anomaly descriptions if `new` looks like a broken/blocked
-    scrape rather than real data, e.g. a category that had listings before and now
-    has none - almost always a site/markup/blocking problem, not real sales."""
+    scrape rather than real data: a category whose listing count collapses (not just
+    hits zero) between runs - almost always a site/markup/blocking problem, not a
+    sudden wave of real sales."""
     if not old:
         return []
-    old_categories = {o["category"] for o in old.values()}
-    new_categories = {o["category"] for o in new.values()}
-    return [
-        f"category '{c}' had listings before, now has 0 - looks like a scrape "
-        f"failure (blocked, markup change, maintenance page), not real sales"
-        for c in sorted(old_categories - new_categories)
-    ]
+    old_counts = Counter(o["category"] for o in old.values())
+    new_counts = Counter(o["category"] for o in new.values())
+    problems = []
+    for category in sorted(old_counts):
+        old_n = old_counts[category]
+        new_n = new_counts.get(category, 0)
+        dropped = old_n - new_n
+        if dropped >= SANITY_MIN_ABSOLUTE_DROP and new_n < old_n * SANITY_MIN_RATIO_DROP:
+            problems.append(
+                f"category '{category}': had {old_n} listings, now has {new_n} - "
+                f"looks like a scrape failure (blocked, markup change, maintenance "
+                f"page), not real sales"
+            )
+    return problems
 
 
 def diff_registries(old: dict, new: dict) -> list[dict]:
@@ -276,9 +327,9 @@ def main():
     old_registry = load_registry()
     first_run = not old_registry
 
-    new_registry = fetch_all()
+    new_registry, parse_problems = fetch_all()
 
-    problems = sanity_check(old_registry, new_registry)
+    problems = parse_problems + sanity_check(old_registry, new_registry)
     if problems:
         for p in problems:
             print(f"ANOMALY: {p}", file=sys.stderr)
@@ -301,8 +352,8 @@ def main():
         with open(args.events_out, "w", encoding="utf-8") as f:
             json.dump(events, f, ensure_ascii=False, indent=2)
 
-    append_history(events)
     save_registry(new_registry)
+    append_history(events)
 
 
 if __name__ == "__main__":
