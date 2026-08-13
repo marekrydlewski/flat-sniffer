@@ -87,6 +87,11 @@ def fetch(id_typ: int) -> str:
     raise RuntimeError(f"failed to fetch id_typ={id_typ} ({url}) after {FETCH_ATTEMPTS} attempts: {last_exc}") from last_exc
 
 
+def _opt_group(m: re.Match | None, group: int = 1) -> str | None:
+    """Returns the stripped match group, or None if the regex didn't match."""
+    return m.group(group).strip() if m else None
+
+
 def parse_offers(html: str) -> tuple[list[dict], int]:
     """Returns (parsed offers, number of listing chunks that failed to parse)."""
     chunks = re.split(r'(?=<a class="target-row)', html)
@@ -120,10 +125,10 @@ def parse_offers(html: str) -> tuple[list[dict], int]:
                 "status_color": head.group("color"),
                 "category": status.group("category").strip(),
                 "unit": status.group("unit").strip(),
-                "price": price_m.group(1).strip() if price_m else None,
-                "price_per_m2": price_m2_m.group(1).strip() if price_m2_m else None,
-                "area_m2": area_m.group(1).strip() if area_m else None,
-                "rooms": rooms_m.group(1).strip() if rooms_m else None,
+                "price": _opt_group(price_m),
+                "price_per_m2": _opt_group(price_m2_m),
+                "area_m2": _opt_group(area_m),
+                "rooms": _opt_group(rooms_m),
                 "extras": extras,
             }
         )
@@ -229,7 +234,7 @@ def diff_registries(old: dict, new: dict) -> list[dict]:
     old_ids = set(old.keys())
     new_ids = set(new.keys())
 
-    for oid in sorted(new_ids - old_ids, key=lambda x: int(x)):
+    for oid in sorted(new_ids - old_ids, key=int):
         o = new[oid]
         events.append({
             "ts": now, "event": "new_listing", "id": oid,
@@ -237,7 +242,7 @@ def diff_registries(old: dict, new: dict) -> list[dict]:
             "status": o["status"], "price": o.get("price"), "url": o["url"],
         })
 
-    for oid in sorted(old_ids - new_ids, key=lambda x: int(x)):
+    for oid in sorted(old_ids - new_ids, key=int):
         o = old[oid]
         events.append({
             "ts": now, "event": "removed_from_listing", "id": oid,
@@ -246,7 +251,7 @@ def diff_registries(old: dict, new: dict) -> list[dict]:
             "note": "no longer in search results - likely sold/withdrawn",
         })
 
-    for oid in sorted(old_ids & new_ids, key=lambda x: int(x)):
+    for oid in sorted(old_ids & new_ids, key=int):
         o_old, o_new = old[oid], new[oid]
         if o_old["status"] != o_new["status"]:
             events.append({
@@ -293,10 +298,7 @@ def format_event(e: dict) -> str:
 
 
 def print_report(events: list[dict], new_registry: dict, first_run: bool) -> None:
-    counts_by_cat = {}
-    for o in new_registry.values():
-        key = (o["category"], o["status"])
-        counts_by_cat[key] = counts_by_cat.get(key, 0) + 1
+    counts_by_cat = Counter((o["category"], o["status"]) for o in new_registry.values())
 
     print(f"=== flat-sniffer :: {datetime.now(timezone.utc).isoformat()} ===")
     print(f"Total listings tracked: {len(new_registry)}")
@@ -342,7 +344,7 @@ def main():
 
     events = [] if first_run else diff_registries(old_registry, new_registry)
 
-    if not (args.quiet and not events and not first_run):
+    if not args.quiet or events or first_run:
         print_report(events, new_registry, first_run)
 
     if args.json:
