@@ -226,6 +226,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--json", action="store_true", help="also print the diff as JSON")
     parser.add_argument("--quiet", action="store_true", help="only print output if something changed")
+    parser.add_argument("--events-out", metavar="PATH", help="write the change-events list as JSON to PATH (for CI consumption)")
     args = parser.parse_args()
 
     old_registry = load_registry()
@@ -239,6 +240,10 @@ def main():
 
     if args.json:
         print(json.dumps(events, ensure_ascii=False, indent=2))
+
+    if args.events_out:
+        with open(args.events_out, "w", encoding="utf-8") as f:
+            json.dump(events, f, ensure_ascii=False, indent=2)
 
     append_history(events)
     save_registry(new_registry)

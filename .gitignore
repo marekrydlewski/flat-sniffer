@@ -1,5 +1,4 @@
-registry.json
-history.log
 cron.log
+events.json
 __pycache__/
 *.pyc
