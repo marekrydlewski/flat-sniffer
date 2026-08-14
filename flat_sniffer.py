@@ -20,6 +20,7 @@ import json
 import re
 import sys
 import time
+import unicodedata
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -123,7 +124,7 @@ def parse_offers(html: str) -> tuple[list[dict], int]:
                 "crm_url": head.group("pdf") or None,
                 "status": status.group("status").strip(),
                 "status_color": head.group("color"),
-                "category": status.group("category").strip(),
+                "category": unicodedata.normalize("NFC", status.group("category").strip()),
                 "unit": status.group("unit").strip(),
                 "price": _opt_group(price_m),
                 "price_per_m2": _opt_group(price_m2_m),
@@ -145,8 +146,17 @@ def fetch_all() -> tuple[dict[str, dict], list[str]]:
         html = fetch(id_typ)
         offers, failed = parse_offers(html)
         total_chunks = len(offers) + failed
-        if failed:
-            ratio = failed / total_chunks if total_chunks else 1.0
+        if total_chunks == 0:
+            # Every category has always had listings; zero chunks found at all - not
+            # just zero parsed - means the page is blocked/empty/restructured, not
+            # that the category genuinely has nothing for sale. Catches this even on
+            # the very first run, when sanity_check() has no baseline to compare to.
+            problems.append(
+                f"category '{label}': found 0 listings at all - looks like the page "
+                f"is blocked, empty, or completely restructured, not real sales"
+            )
+        elif failed:
+            ratio = failed / total_chunks
             print(f"WARNING: category '{label}': {failed}/{total_chunks} listing(s) "
                   f"failed to parse (regex mismatch)", file=sys.stderr)
             if ratio >= PARSE_FAILURE_RATIO:
@@ -218,7 +228,7 @@ def sanity_check(old: dict, new: dict) -> list[str]:
         old_n = old_counts[category]
         new_n = new_counts.get(category, 0)
         dropped = old_n - new_n
-        if dropped >= SANITY_MIN_ABSOLUTE_DROP and new_n < old_n * SANITY_MIN_RATIO_DROP:
+        if dropped >= SANITY_MIN_ABSOLUTE_DROP and new_n <= old_n * SANITY_MIN_RATIO_DROP:
             problems.append(
                 f"category '{category}': had {old_n} listings, now has {new_n} - "
                 f"looks like a scrape failure (blocked, markup change, maintenance "

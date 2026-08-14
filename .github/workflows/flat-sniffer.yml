@@ -48,10 +48,22 @@ jobs:
           fi
 
       - name: Notify on failure
-        if: failure()
+        if: failure() || cancelled()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          body="The scheduled run failed or was cancelled (e.g. by the job timeout) before completing normally (network error, corrupted registry, a suspicious/degraded scrape, or a failed issue post). Check the run log to see whether the registry was updated before the failure. Logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          # events.json may still hold this run's real diff even if a later step
+          # (issue creation) is what failed - surface it here so it isn't lost.
+          if [ -f events.json ] && [ "$(python3 -c 'import json; print(len(json.load(open("events.json"))))' 2>/dev/null)" != "0" ]; then
+            body="$body
+
+          Changes detected this run (may or may not be reflected in registry.json/history.log yet - check the log):
+
+          $(uv run format_issue.py events.json 2>/dev/null || echo '(failed to render diff)')"
+          fi
+
           gh issue create \
             --title "flat-sniffer: check failed on $(date -u +%Y-%m-%d)" \
-            --body "The scheduled run failed before completing (network error, corrupted registry, a suspicious/degraded scrape, or a failed issue post). Check the run log to see whether the registry was updated before the failure. Logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            --body "$body"
