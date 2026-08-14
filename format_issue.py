@@ -8,6 +8,7 @@
 Declares the same dependency as flat_sniffer.py (via `uv run format_issue.py`)
 since importing it transitively imports httpx.
 """
+
 import json
 import sys
 

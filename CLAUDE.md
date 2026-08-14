@@ -12,9 +12,10 @@ opens a GitHub issue when something changes.
 
 ## Commands
 
-This is a single-file Python tool using [uv](https://docs.astral.sh/uv/) with
-PEP 723 inline script metadata (dependency: `httpx`) — no `pyproject.toml`,
-no manual venv setup. `uv run` resolves and caches the dependency automatically.
+`flat_sniffer.py` / `format_issue.py` are self-contained scripts using
+[uv](https://docs.astral.sh/uv/) with PEP 723 inline script metadata
+(dependency: `httpx`) — `uv run` resolves and caches that dependency
+automatically, standalone, regardless of the project setup below.
 
 ```bash
 uv run flat_sniffer.py                              # fetch, diff, print changes, save
@@ -24,7 +25,17 @@ uv run flat_sniffer.py --events-out events.json       # write the diff to a JSON
 uv run format_issue.py events.json                    # render an events.json file as a GitHub issue body
 ```
 
-There is no test suite, linter, or type checker configured in this repo.
+`pyproject.toml` exists for dev tooling (`ruff`, `ty` via uv dependency-groups),
+not for running the scripts. There is no test suite. Lint/format/typecheck via
+`just`:
+
+```bash
+just lint        # ruff check
+just fmt         # ruff format
+just fmt-check   # ruff format --check
+just typecheck   # ty check
+just check       # all of the above
+```
 
 ## Architecture
 

@@ -1,0 +1,14 @@
+[project]
+name = "flat-sniffer"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ["httpx"]
+
+[dependency-groups]
+dev = [
+    "ruff",
+    "ty",
+]
+
+[tool.ruff]
+line-length = 120
