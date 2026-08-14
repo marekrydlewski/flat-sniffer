@@ -61,9 +61,9 @@ just check       # all of the above
   something's blocked/broken, since every category has always had listings), an
   aborting anomaly in its own right, independent of `sanity_check()` below — this is
   what catches a fully-blocked scrape even on the very first run, when there's no
-  prior baseline for `sanity_check()` to compare against. Category names are
-  Unicode-NFC-normalized at parse time so cosmetic re-rendering differences can't
-  masquerade as a category disappearing.
+  prior baseline for `sanity_check()` to compare against. `status`/`category`/`unit`
+  are all Unicode-NFC-normalized at parse time so a cosmetic re-rendering difference
+  can't masquerade as a real change or a category disappearing.
 - **`registry.json`** is the persisted state: a dict keyed by the site's own
   `data-id`, one entry per listing (status, price, area, floor/extras, etc.).
   It's a *tracked, committed* file — local runs and the CI workflow both read
@@ -86,7 +86,10 @@ just check       # all of the above
   touching `registry.json`/`history.log`. Combined with `fetch_all()`'s
   parse-failure/zero-chunks checks above, this exists to stop a degraded scrape
   (partial or total) from being misread as a mass sell-off and permanently
-  corrupting the baseline — don't bypass it without preserving that guarantee.
+  corrupting the baseline. Since a category *can* legitimately sell out or be
+  discontinued for real, `--force` skips these checks for one run — the intended
+  recovery path once a flagged anomaly has been manually verified as real, not
+  a scrape failure.
 - `format_event()` / `EVENT_TAGS` render a single event as text and are shared
   between `print_report()` (console) and `format_issue.py` (GitHub issue
   Markdown) — keep them shared rather than reintroducing a second copy.

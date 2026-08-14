@@ -103,6 +103,13 @@ def _opt_group(m: re.Match | None, group: int = 1) -> str | None:
     return m.group(group).strip() if m else None
 
 
+def _norm(s: str) -> str:
+    """Strips and Unicode-NFC-normalizes a string so a cosmetic re-rendering
+    difference (e.g. a different composition of a diacritic) between two runs
+    can't masquerade as the value having actually changed."""
+    return unicodedata.normalize("NFC", s.strip())
+
+
 def parse_offers(html: str) -> tuple[list[dict], int]:
     """Returns (parsed offers, number of listing chunks that failed to parse)."""
     chunks = re.split(r'(?=<a class="target-row)', html)
@@ -127,10 +134,10 @@ def parse_offers(html: str) -> tuple[list[dict], int]:
                 "id": head.group("id"),
                 "url": head.group("href"),
                 "crm_url": head.group("pdf") or None,
-                "status": status.group("status").strip(),
+                "status": _norm(status.group("status")),
                 "status_color": head.group("color"),
-                "category": unicodedata.normalize("NFC", status.group("category").strip()),
-                "unit": status.group("unit").strip(),
+                "category": _norm(status.group("category")),
+                "unit": _norm(status.group("unit")),
                 **{key: _opt_group(regex.search(chunk)) for key, regex in OPTIONAL_FIELD_RES.items()},
                 "extras": extras,
             }
@@ -376,6 +383,15 @@ def main():
         metavar="PATH",
         help="write the change-events list as JSON to PATH (for CI consumption)",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help=(
+            "persist the scrape even if an anomaly is detected - the recovery path for a "
+            "category that has genuinely gone to 0 (discontinued) or collapsed for real, "
+            "once you've manually verified it's not a scrape failure"
+        ),
+    )
     args = parser.parse_args()
 
     old_registry = load_registry()
@@ -384,15 +400,19 @@ def main():
     new_registry, parse_problems = fetch_all()
 
     problems = parse_problems + sanity_check(old_registry, new_registry)
-    if problems:
+    if problems and not args.force:
         for p in problems:
             print(f"ANOMALY: {p}", file=sys.stderr)
         print(
             "Aborting without touching registry.json/history.log - refusing to "
-            "treat a suspicious scrape as ground truth.",
+            "treat a suspicious scrape as ground truth. If you've verified this is "
+            "real (not a scrape failure), re-run with --force.",
             file=sys.stderr,
         )
         sys.exit(1)
+    elif problems:
+        for p in problems:
+            print(f"ANOMALY (proceeding anyway, --force given): {p}", file=sys.stderr)
 
     events = [] if first_run else diff_registries(old_registry, new_registry)
 
