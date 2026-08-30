@@ -1,4 +1,7 @@
 events.json
+flat-dashboard.html
+issue-history.json
+site/
 __pycache__/
 *.pyc
 .venv/
