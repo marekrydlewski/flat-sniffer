@@ -55,10 +55,15 @@ jobs:
             echo "No changes, skipping issue."
           fi
 
+      - name: Fetch dashboard history from issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue list --state all --limit 100 --json createdAt,body > issue-history.json
+
       - name: Build availability dashboard
         run: |
           mkdir -p site
-          uv run render_dashboard.py --events events.json --sold sold_registry.json --out site/index.html
+          uv run render_dashboard.py --events events.json --sold sold_registry.json --issue-history issue-history.json --history history.log --out site/index.html
 
       - name: Upload availability dashboard
         uses: actions/upload-artifact@v4
