@@ -78,10 +78,12 @@ def changelog(history: list[dict]) -> str:
             dates.append(label)
         cards.append(f'<div class="changelog-item" data-ts="{html.escape(timestamp, quote=True)}"><time>{html.escape(label)}</time>{event_card(event)}</div>')
     body = "".join(cards) or '<p class="empty">Brak zapisanych zmian.</p>'
-    options = ['<option value="all">wszystkie dni</option>']
-    for day in dates:
-        options.append(f'<option value="{html.escape(day, quote=True)}">{html.escape(day)}</option>')
-    return f'''<details><summary>Historia zmian ({len(history)} zdarzeń)</summary><label class="range-label">Pokaż zmiany z dnia: <select id="history-day">{"".join(options)}</select></label><div id="changelog">{body}</div></details>'''
+    options = [
+        f'<option value="{html.escape(day, quote=True)}"{" selected" if index == 0 else ""}>{html.escape(day)}</option>'
+        for index, day in enumerate(dates)
+    ]
+    options.append('<option value="all">wszystkie dni</option>')
+    return f'''<details open><summary>Historia zmian — wybierz dzień ({len(history)} zdarzeń)</summary><label class="range-label">Pokaż zmiany z dnia: <select id="history-day">{"".join(options)}</select></label><div id="changelog">{body}</div></details>'''
 
 
 def category_summary(offers: list[dict], sold: list[dict]) -> str:
@@ -177,7 +179,7 @@ h2 {{ font-size:1.25rem; margin:34px 0 14px }}
 </style><main><h1>Dostępność nieruchomości</h1><p class="updated">Ostatnia aktualizacja: {generated}</p>
 <div class="summary"><span class="pill"><b>{len(events)}</b> zmian</span><span class="pill"><b>{len(offers)}</b> w bieżącej ofercie</span><span class="pill"><b>{counts['available']}</b> wolnych</span><span class="pill"><b>{counts['reserved']}</b> rezerwacji</span><span class="pill"><b>{len(sold)}</b> wykrytych sprzedanych</span></div>
 <div class="category-stats">{summaries}</div><p class="updated">Pasek pokazuje udział: <span class="status-available">wolne</span> · <span class="status-reserved">rezerwacje</span> · <span class="status-sold">sprzedane</span>. Sprzedane obejmuje pozycje potwierdzone na stronie dewelopera.</p><section><h2>Od ostatniego sprawdzenia</h2><div class="changes">{changes}</div>{full_changelog}</section><details class="collapsible"><summary>Historia zniknięć z oferty — ostatnie 21 dni</summary>{trends}<p class="updated">Zniknięcie z oferty zwykle oznacza sprzedaż lub wycofanie.</p></details><details class="collapsible"><summary>Pozycje widoczne obecnie na stronie dewelopera</summary>{cards}</details>
-</main><script>const day=document.querySelector('#history-day');if(day)day.onchange=()=>{{document.querySelectorAll('.changelog-item').forEach(x=>{{x.hidden=day.value!=='all'&&x.dataset.ts.slice(0,10)!==day.value}})}};</script></html>'''
+</main><script>const day=document.querySelector('#history-day');if(day){{const filter=()=>document.querySelectorAll('.changelog-item').forEach(x=>{{x.hidden=day.value!=='all'&&x.dataset.ts.slice(0,10)!==day.value}});day.onchange=filter;filter()}}</script></html>'''
 
 
 def main() -> None:
