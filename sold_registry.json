@@ -369,6 +369,14 @@
   },
   {
     "category": "Komórka",
+    "unit": "KL22",
+    "status": "Sprzedane",
+    "price": null,
+    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-KL22",
+    "detected_at": "2026-09-14T14:35:27.974214+00:00"
+  },
+  {
+    "category": "Komórka",
     "unit": "KL24",
     "status": "Sprzedane",
     "price": null,
@@ -630,6 +638,14 @@
     "price": null,
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A2-LM-36_09",
     "detected_at": "2026-08-30T12:36:57.090643+00:00"
+  },
+  {
+    "category": "Mieszkanie",
+    "unit": "38_11",
+    "status": "Sprzedane",
+    "price": null,
+    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-B-LM-38_11",
+    "detected_at": "2026-09-14T14:35:24.208297+00:00"
   },
   {
     "category": "Mieszkanie",
