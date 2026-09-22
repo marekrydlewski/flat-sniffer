@@ -2185,6 +2185,8 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
         return false;
       }});
       if (catBtn) catBtn.click();
+    }}
+
     // --- Trend View Switcher ---
     function switchTrendView(mode) {{
       document.querySelectorAll('.trend-toggle-group .pill-btn').forEach(btn => {{
@@ -2302,12 +2304,17 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
       const rawOffers = JSON.parse(document.getElementById('offers-data').textContent);
       const grid = document.getElementById('catalog-grid');
       const searchInput = document.getElementById('catalog-search');
+      const searchClearBtn = document.getElementById('search-clear-btn');
       const sortSelect = document.getElementById('catalog-sort');
       const loadMoreBtn = document.getElementById('load-more-btn');
       const paginationWrap = document.getElementById('pagination-wrap');
       const visibleCountEl = document.getElementById('visible-count');
       const totalCountEl = document.getElementById('total-count');
       const viewModeBtn = document.getElementById('view-mode-toggle');
+      const activeFiltersBar = document.getElementById('active-filters-bar');
+      const activeFiltersCountEl = document.getElementById('active-filters-count');
+      const activeFilterTagsEl = document.getElementById('active-filter-tags');
+      const resetFiltersBtn = document.getElementById('reset-filters-btn');
 
       let currentCat = 'all';
       let currentStatus = 'all';
@@ -2324,6 +2331,44 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
         grid.classList.toggle('compact-mode', isCompact);
         viewModeBtn.textContent = isCompact ? 'Widok: Lista' : 'Widok: Kafelki';
       }});
+
+      function updateActiveFilters() {{
+        const chips = [];
+        if (currentPriceFilter === 'drops') {{
+          chips.push('🔥 Obniżki cen');
+        }}
+        if (currentCat !== 'all') {{
+          const catMap = {{
+            'Mieszkanie': 'Mieszkania',
+            'Hala garażowa,Miejsce postojowe': 'Parkowanie',
+            'Komórka': 'Komórki'
+          }};
+          chips.push(catMap[currentCat] || currentCat);
+        }}
+        if (currentStatus !== 'all') {{
+          const statusMap = {{
+            'available': 'Wolne',
+            'reserved': 'Rezerwacja',
+            'sold': 'Sprzedane'
+          }};
+          chips.push(statusMap[currentStatus] || currentStatus);
+        }}
+        if (currentQuery) {{
+          chips.push(`"${{currentQuery}}"`);
+        }}
+
+        if (chips.length > 0) {{
+          activeFiltersBar.style.display = 'flex';
+          activeFiltersCountEl.textContent = chips.length;
+          activeFilterTagsEl.innerHTML = chips.map(c => `<span class="active-filter-chip">${{c}}</span>`).join('');
+        }} else {{
+          activeFiltersBar.style.display = 'none';
+        }}
+
+        if (searchClearBtn) {{
+          searchClearBtn.style.display = searchInput.value ? 'flex' : 'none';
+        }}
+      }}
 
       function filterAndSortOffers() {{
         let list = rawOffers.filter(item => {{
@@ -2366,6 +2411,7 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
 
       function renderCatalog(reset = false) {{
         if (reset) displayedCount = PAGE_SIZE;
+        updateActiveFilters();
         const filtered = filterAndSortOffers();
         totalCountEl.textContent = filtered.length;
 
@@ -2421,13 +2467,22 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
             priceContent = `<strong class="card-price">${{offer.price || 'Cena niedostępna'}}</strong>`;
           }}
 
+          const recentBadge = offer.recent
+            ? '<span class="badge-recent-change" title="Pozycja zmieniła się w ostatnim sprawdzeniu">✦ Ostatnia zmiana</span>'
+            : '';
+          const copyBtn = `<button class="card-copy-btn" type="button" title="Kopiuj link do schowka" onclick="copyOfferLink(event, '${{offer.url}}')">🔗</button>`;
+
           return `<a class="flat-card status-border-${{offer.kind}}" href="${{offer.url}}" target="_blank" rel="noreferrer">
             <div class="card-header">
               <div class="card-title-wrap">
                 <span class="status-dot dot-${{offer.kind}}" aria-hidden="true"></span>
                 <span class="card-unit">${{offer.cat}} ${{offer.unit}}</span>
+                ${{recentBadge}}
               </div>
-              <span class="status-pill pill-${{offer.kind}}">${{label}}</span>
+              <div class="card-header-actions">
+                ${{copyBtn}}
+                <span class="status-pill pill-${{offer.kind}}">${{label}}</span>
+              </div>
             </div>
             <div class="card-body">
               <span class="card-meta">${{metaText}}</span>
@@ -2449,12 +2504,25 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
 
       let debounceTimer;
       searchInput.addEventListener('input', e => {{
+        if (searchClearBtn) {{
+          searchClearBtn.style.display = e.target.value ? 'flex' : 'none';
+        }}
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {{
           currentQuery = e.target.value.trim();
           renderCatalog(true);
         }}, 180);
       }});
+
+      if (searchClearBtn) {{
+        searchClearBtn.addEventListener('click', () => {{
+          searchInput.value = '';
+          currentQuery = '';
+          searchClearBtn.style.display = 'none';
+          renderCatalog(true);
+          searchInput.focus();
+        }});
+      }}
 
       sortSelect.addEventListener('change', e => {{
         currentSort = e.target.value;
@@ -2487,6 +2555,25 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
           renderCatalog(true);
         }});
       }});
+
+      if (resetFiltersBtn) {{
+        resetFiltersBtn.addEventListener('click', () => {{
+          currentPriceFilter = 'all';
+          currentCat = 'all';
+          currentStatus = 'all';
+          currentQuery = '';
+          currentSort = 'default';
+
+          document.querySelectorAll('#price-filters .pill-btn').forEach(b => b.classList.toggle('active', b.dataset.priceFilter === 'all'));
+          document.querySelectorAll('#category-filters .pill-btn').forEach(b => b.classList.toggle('active', b.dataset.catFilter === 'all'));
+          document.querySelectorAll('#status-filters .pill-btn').forEach(b => b.classList.toggle('active', b.dataset.statusFilter === 'all'));
+          searchInput.value = '';
+          if (searchClearBtn) searchClearBtn.style.display = 'none';
+          sortSelect.value = 'default';
+
+          renderCatalog(true);
+        }});
+      }}
 
       renderCatalog(true);
     }})();
