@@ -691,6 +691,9 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Świętego Michała · Pulpit Dostępności</title>
   <meta name="description" content="Monitor zmian dostępności, rezerwacji i cen mieszkań i lokali w inwestycji Świętego Michała w Poznaniu.">
   <style>
@@ -1291,10 +1294,24 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
       background: var(--bg-surface);
       border: 1px solid var(--border);
       border-radius: var(--radius-full);
-      padding: 2px 9px;
+      padding: 3px 10px;
       font-weight: 650;
       color: var(--text);
       font-size: 0.74rem;
+      cursor: pointer;
+      font-family: inherit;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+      transition: all 0.15s ease;
+    }}
+    .active-filter-chip:hover {{
+      border-color: var(--primary);
+      color: var(--primary);
+      background: var(--primary-subtle);
     }}
     .reset-filters-btn {{
       background: transparent;
@@ -1306,6 +1323,9 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
       cursor: pointer;
       padding: 4px 8px;
       border-radius: var(--radius-sm);
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
       transition: background 0.15s;
     }}
     .reset-filters-btn:hover {{
@@ -1331,6 +1351,14 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
       flex-wrap: wrap;
       align-items: center;
     }}
+    .filter-label {{
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-right: 4px;
+      user-select: none;
+      -webkit-user-select: none;
+    }}
     .pill-btn {{
       padding: 6px 12px;
       background: var(--bg-subtle);
@@ -1341,6 +1369,10 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
       font-weight: 600;
       color: var(--text-muted);
       cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
       transition: all 0.15s;
     }}
     .pill-btn:hover {{ color: var(--text); background: var(--border); }}
@@ -1880,6 +1912,7 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
       .timeline-summary {{ padding: 12px 14px; }}
       .timeline-chips {{ display: none; }}
       .catalog-bar-top {{ flex-direction: column; }}
+      .pill-btn {{ padding: 7px 13px; font-size: 0.82rem; }}
       .inventory-grid {{ grid-template-columns: 1fr; }}
     }}
   </style>
@@ -2026,25 +2059,25 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
         </div>
 
         <div class="filter-pills-row" id="price-filters">
-          <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted); margin-right:4px;">Cena:</span>
-          <button class="pill-btn active" data-price-filter="all">Wszystkie</button>
-          <button class="pill-btn" data-price-filter="drops">🔥 Obniżki cen ({drops_count})</button>
+          <span class="filter-label">Cena:</span>
+          <button type="button" class="pill-btn active" data-price-filter="all" onclick="setPriceFilter('all')">Wszystkie</button>
+          <button type="button" class="pill-btn" data-price-filter="drops" onclick="setPriceFilter('drops')">🔥 Obniżki cen ({drops_count})</button>
         </div>
 
         <div class="filter-pills-row" id="category-filters">
-          <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted); margin-right:4px;">Kategoria:</span>
-          <button class="pill-btn active" data-cat-filter="all">Wszystkie</button>
-          <button class="pill-btn" data-cat-filter="Mieszkanie">Mieszkania</button>
-          <button class="pill-btn" data-cat-filter="Hala garażowa,Miejsce postojowe">Parkowanie</button>
-          <button class="pill-btn" data-cat-filter="Komórka">Komórki</button>
+          <span class="filter-label">Kategoria:</span>
+          <button type="button" class="pill-btn active" data-cat-filter="all" onclick="setCategoryFilter('all')">Wszystkie</button>
+          <button type="button" class="pill-btn" data-cat-filter="Mieszkanie" onclick="setCategoryFilter('Mieszkanie')">Mieszkania</button>
+          <button type="button" class="pill-btn" data-cat-filter="Hala garażowa,Miejsce postojowe" onclick="setCategoryFilter('Hala garażowa,Miejsce postojowe')">Parkowanie</button>
+          <button type="button" class="pill-btn" data-cat-filter="Komórka" onclick="setCategoryFilter('Komórka')">Komórki</button>
         </div>
 
         <div class="filter-pills-row" id="status-filters">
-          <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted); margin-right:4px;">Status:</span>
-          <button class="pill-btn active" data-status-filter="all">Wszystkie</button>
-          <button class="pill-btn" data-status-filter="available">Wolne</button>
-          <button class="pill-btn" data-status-filter="reserved">Rezerwacje</button>
-          <button class="pill-btn" data-status-filter="sold">Sprzedane</button>
+          <span class="filter-label">Status:</span>
+          <button type="button" class="pill-btn active" data-status-filter="all" onclick="setStatusFilter('all')">Wszystkie</button>
+          <button type="button" class="pill-btn" data-status-filter="available" onclick="setStatusFilter('available')">Wolne</button>
+          <button type="button" class="pill-btn" data-status-filter="reserved" onclick="setStatusFilter('reserved')">Rezerwacje</button>
+          <button type="button" class="pill-btn" data-status-filter="sold" onclick="setStatusFilter('sold')">Sprzedane</button>
         </div>
 
         <div id="active-filters-bar" class="active-filters-bar" style="display:none;">
@@ -2052,7 +2085,7 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
             <span class="active-filters-label">Aktywne filtry (<span id="active-filters-count">0</span>):</span>
             <div id="active-filter-tags" class="active-filter-tags"></div>
           </div>
-          <button id="reset-filters-btn" class="reset-filters-btn" type="button">Resetuj filtry ✕</button>
+          <button id="reset-filters-btn" class="reset-filters-btn" type="button" onclick="resetAllFilters()">Resetuj filtry ✕</button>
         </div>
       </div>
 
@@ -2103,10 +2136,24 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
   </main>
 
   <script id="offers-data" type="application/json">
-    {json.dumps(compact_offers_json, ensure_ascii=False)}
+    {json.dumps(compact_offers_json, ensure_ascii=False, allow_nan=False)}
   </script>
 
   <script>
+    // --- Global Filter Functions & Stubs ---
+    window.setCategoryFilter = function(cat) {{
+      if (window._catalogSetCategory) window._catalogSetCategory(cat);
+    }};
+    window.setPriceFilter = function(filter) {{
+      if (window._catalogSetPrice) window._catalogSetPrice(filter);
+    }};
+    window.setStatusFilter = function(status) {{
+      if (window._catalogSetStatus) window._catalogSetStatus(status);
+    }};
+    window.resetAllFilters = function() {{
+      if (window._catalogResetFilters) window._catalogResetFilters();
+    }};
+
     // --- Global Tab Switching ---
     function switchTab(tabId) {{
       document.querySelectorAll('.tab-btn').forEach(btn => {{
@@ -2122,25 +2169,22 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
 
     function filterCatalogByStatus(statusKey) {{
       switchTab('tab-catalog');
-      const btn = Array.from(document.querySelectorAll('#status-filters .pill-btn')).find(b => b.dataset.statusFilter === statusKey);
-      if (btn) btn.click();
+      window.setStatusFilter(statusKey);
     }}
 
     function filterCatalogByPriceDrops() {{
       switchTab('tab-catalog');
-      const btn = document.querySelector('#price-filters [data-price-filter="drops"]');
-      if (btn) btn.click();
+      window.setPriceFilter('drops');
     }}
 
     function filterCatalogByGroup(groupName) {{
       switchTab('tab-catalog');
-      const catBtn = Array.from(document.querySelectorAll('#category-filters .pill-btn')).find(b => {{
-        if (groupName === 'Mieszkania') return b.dataset.catFilter === 'Mieszkanie';
-        if (groupName === 'Parkowanie') return b.dataset.catFilter.includes('Hala garażowa');
-        if (groupName === 'Komórki lokatorskie') return b.dataset.catFilter === 'Komórka';
-        return false;
-      }});
-      if (catBtn) catBtn.click();
+      const catMap = {{
+        'Mieszkania': 'Mieszkanie',
+        'Parkowanie': 'Hala garażowa,Miejsce postojowe',
+        'Komórki lokatorskie': 'Komórka'
+      }};
+      window.setCategoryFilter(catMap[groupName] || 'all');
     }}
 
     // --- Trend View Switcher ---
@@ -2291,7 +2335,7 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
       function updateActiveFilters() {{
         const chips = [];
         if (currentPriceFilter === 'drops') {{
-          chips.push('🔥 Obniżki cen');
+          chips.push({{ text: '🔥 Obniżki cen', action: "setPriceFilter('all')" }});
         }}
         if (currentCat !== 'all') {{
           const catMap = {{
@@ -2299,7 +2343,7 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
             'Hala garażowa,Miejsce postojowe': 'Parkowanie',
             'Komórka': 'Komórki'
           }};
-          chips.push(catMap[currentCat] || currentCat);
+          chips.push({{ text: catMap[currentCat] || currentCat, action: "setCategoryFilter('all')" }});
         }}
         if (currentStatus !== 'all') {{
           const statusMap = {{
@@ -2307,22 +2351,24 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
             'reserved': 'Rezerwacja',
             'sold': 'Sprzedane'
           }};
-          chips.push(statusMap[currentStatus] || currentStatus);
+          chips.push({{ text: statusMap[currentStatus] || currentStatus, action: "setStatusFilter('all')" }});
         }}
         if (currentQuery) {{
-          chips.push(`"${{currentQuery}}"`);
+          chips.push({{ text: `"${{currentQuery}}"`, action: "clearSearchFilter()" }});
         }}
 
         if (chips.length > 0) {{
           activeFiltersBar.style.display = 'flex';
           activeFiltersCountEl.textContent = chips.length;
-          activeFilterTagsEl.innerHTML = chips.map(c => `<span class="active-filter-chip">${{c}}</span>`).join('');
+          activeFilterTagsEl.innerHTML = chips.map(c =>
+            `<button type="button" class="active-filter-chip" onclick="${{c.action}}" title="Usuń ten filtr">${{c.text}} ✕</button>`
+          ).join('');
         }} else {{
           activeFiltersBar.style.display = 'none';
         }}
 
         if (searchClearBtn) {{
-          searchClearBtn.style.display = searchInput.value ? 'flex' : 'none';
+          searchClearBtn.style.display = (searchInput && searchInput.value) ? 'flex' : 'none';
         }}
       }}
 
@@ -2478,50 +2524,82 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
         renderCatalog(true);
       }});
 
-      document.querySelectorAll('#price-filters .pill-btn').forEach(btn => {{
-        btn.addEventListener('click', () => {{
-          document.querySelectorAll('#price-filters .pill-btn').forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          currentPriceFilter = btn.dataset.priceFilter;
-          renderCatalog(true);
+      window._catalogSetCategory = function(cat) {{
+        currentCat = cat || 'all';
+        document.querySelectorAll('#category-filters .pill-btn').forEach(b => {{
+          const val = b.getAttribute('data-cat-filter') || b.dataset.catFilter;
+          b.classList.toggle('active', val === currentCat);
         }});
-      }});
+        renderCatalog(true);
+      }};
 
-      document.querySelectorAll('#category-filters .pill-btn').forEach(btn => {{
-        btn.addEventListener('click', () => {{
-          document.querySelectorAll('#category-filters .pill-btn').forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          currentCat = btn.dataset.catFilter;
-          renderCatalog(true);
+      window._catalogSetPrice = function(filter) {{
+        currentPriceFilter = filter || 'all';
+        document.querySelectorAll('#price-filters .pill-btn').forEach(b => {{
+          const val = b.getAttribute('data-price-filter') || b.dataset.priceFilter;
+          b.classList.toggle('active', val === currentPriceFilter);
         }});
-      }});
+        renderCatalog(true);
+      }};
 
-      document.querySelectorAll('#status-filters .pill-btn').forEach(btn => {{
-        btn.addEventListener('click', () => {{
-          document.querySelectorAll('#status-filters .pill-btn').forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          currentStatus = btn.dataset.statusFilter;
-          renderCatalog(true);
+      window._catalogSetStatus = function(status) {{
+        currentStatus = status || 'all';
+        document.querySelectorAll('#status-filters .pill-btn').forEach(b => {{
+          const val = b.getAttribute('data-status-filter') || b.dataset.statusFilter;
+          b.classList.toggle('active', val === currentStatus);
         }});
-      }});
+        renderCatalog(true);
+      }};
+
+      window._catalogResetFilters = function() {{
+        currentPriceFilter = 'all';
+        currentCat = 'all';
+        currentStatus = 'all';
+        currentQuery = '';
+        currentSort = 'default';
+
+        document.querySelectorAll('#price-filters .pill-btn').forEach(b => {{
+          b.classList.toggle('active', (b.getAttribute('data-price-filter') || b.dataset.priceFilter) === 'all');
+        }});
+        document.querySelectorAll('#category-filters .pill-btn').forEach(b => {{
+          b.classList.toggle('active', (b.getAttribute('data-cat-filter') || b.dataset.catFilter) === 'all');
+        }});
+        document.querySelectorAll('#status-filters .pill-btn').forEach(b => {{
+          b.classList.toggle('active', (b.getAttribute('data-status-filter') || b.dataset.statusFilter) === 'all');
+        }});
+
+        if (searchInput) searchInput.value = '';
+        if (searchClearBtn) searchClearBtn.style.display = 'none';
+        if (sortSelect) sortSelect.value = 'default';
+
+        renderCatalog(true);
+      }};
+
+      window.clearSearchFilter = function() {{
+        if (searchInput) searchInput.value = '';
+        currentQuery = '';
+        if (searchClearBtn) searchClearBtn.style.display = 'none';
+        renderCatalog(true);
+      }};
+
+      // Event delegation on catalog filter container to catch all clicks
+      const catalogBar = document.querySelector('.catalog-bar');
+      if (catalogBar) {{
+        catalogBar.addEventListener('click', e => {{
+          const btn = e.target.closest('.pill-btn');
+          if (!btn) return;
+          if (btn.hasAttribute('data-cat-filter')) {{
+            window.setCategoryFilter(btn.getAttribute('data-cat-filter'));
+          }} else if (btn.hasAttribute('data-price-filter')) {{
+            window.setPriceFilter(btn.getAttribute('data-price-filter'));
+          }} else if (btn.hasAttribute('data-status-filter')) {{
+            window.setStatusFilter(btn.getAttribute('data-status-filter'));
+          }}
+        }});
+      }}
 
       if (resetFiltersBtn) {{
-        resetFiltersBtn.addEventListener('click', () => {{
-          currentPriceFilter = 'all';
-          currentCat = 'all';
-          currentStatus = 'all';
-          currentQuery = '';
-          currentSort = 'default';
-
-          document.querySelectorAll('#price-filters .pill-btn').forEach(b => b.classList.toggle('active', b.dataset.priceFilter === 'all'));
-          document.querySelectorAll('#category-filters .pill-btn').forEach(b => b.classList.toggle('active', b.dataset.catFilter === 'all'));
-          document.querySelectorAll('#status-filters .pill-btn').forEach(b => b.classList.toggle('active', b.dataset.statusFilter === 'all'));
-          searchInput.value = '';
-          if (searchClearBtn) searchClearBtn.style.display = 'none';
-          sortSelect.value = 'default';
-
-          renderCatalog(true);
-        }});
+        resetFiltersBtn.addEventListener('click', () => window.resetAllFilters());
       }}
 
       renderCatalog(true);
