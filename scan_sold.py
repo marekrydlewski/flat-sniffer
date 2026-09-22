@@ -83,9 +83,7 @@ def main() -> None:
         futures = [executor.submit(fetch_sold, url) for url in candidates(registry)]
         for future in as_completed(futures):
             if offer := future.result():
-                offer["detected_at"] = previous.get(offer["url"], {}).get(
-                    "detected_at", datetime.now(UTC).isoformat()
-                )
+                offer["detected_at"] = previous.get(offer["url"], {}).get("detected_at", datetime.now(UTC).isoformat())
                 found.append(offer)
     found.sort(key=lambda o: (o["category"], o["unit"]))
     Path(args.out).write_text(json.dumps(found, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
