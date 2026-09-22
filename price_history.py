@@ -111,6 +111,25 @@ class UnitPriceProfile:
     def to_dict(self) -> dict:
         return asdict(self)
 
+    @property
+    def history_tooltip(self) -> str:
+        if self.price_changes:
+            pts = [
+                f"{pt.date}: {pt.price or 'cena ukryta'}"
+                for pt in self.timeline
+                if pt.event
+                in (
+                    "new_listing",
+                    "price_change_adjustment",
+                    "price_change_masked",
+                    "price_change_unmasked",
+                )
+            ]
+            return " | ".join(pts)
+        if self.initial_price:
+            return f"Cena od początku: {self.initial_price}"
+        return ""
+
 
 def load_area_lookup(registry_path: Path = REGISTRY_PATH) -> dict[tuple[str, str], float]:
     """Build a (category, unit) -> area_m2 lookup from registry.json."""
@@ -448,7 +467,4 @@ if __name__ == "__main__":
     try:
         main()
     except BrokenPipeError:
-        import contextlib
-
-        with contextlib.suppress(OSError):
-            sys.stderr.close()
+        sys.exit(0)

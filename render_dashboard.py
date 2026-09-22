@@ -10,7 +10,7 @@ from collections import Counter
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from price_history import build_price_history, format_amount
+from price_history import build_price_history, format_amount, parse_area_num, parse_price_num
 
 try:
     from datetime import UTC
@@ -78,23 +78,6 @@ def group_name(category: str) -> str:
         if category in categories:
             return name
     return category
-
-
-def parse_price_value(price_str: str | None) -> float:
-    if not price_str:
-        return float("inf")
-    digits = "".join(ch for ch in str(price_str) if ch.isdigit())
-    return float(digits) if digits else float("inf")
-
-
-def parse_area_value(area_str: str | None) -> float:
-    if not area_str:
-        return 0.0
-    cleaned = str(area_str).replace(",", ".").strip()
-    try:
-        return float(cleaned)
-    except ValueError:
-        return 0.0
 
 
 def plural_events(count: int) -> str:
@@ -245,11 +228,12 @@ def event_card_html(event: dict) -> str:
         delta_amount = event.get("delta_amount")
         delta_pct = event.get("delta_pct")
         if delta_amount is None and event.get("old_price") and event.get("new_price"):
-            old_num = parse_price_value(event.get("old_price"))
-            new_num = parse_price_value(event.get("new_price"))
-            if old_num != float("inf") and new_num != float("inf"):
-                delta_amount = int(new_num - old_num)
-                delta_pct = round((delta_amount / old_num) * 100, 2)
+            old_num = parse_price_num(event.get("old_price"))
+            new_num = parse_price_num(event.get("new_price"))
+            if old_num is not None and new_num is not None:
+                delta_amount = new_num - old_num
+                if old_num > 0:
+                    delta_pct = round((delta_amount / old_num) * 100, 2)
 
         delta_badge = ""
         if delta_amount is not None:
@@ -539,9 +523,9 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
     all_offers = offers + normalized_sold
 
     area_lookup = {
-        (o.get("category", ""), o.get("unit", "")): parse_area_value(o.get("area_m2"))
+        (o.get("category", ""), o.get("unit", "")): area
         for o in all_offers
-        if o.get("area_m2")
+        if (area := parse_area_num(o.get("area_m2"))) is not None
     }
     price_profiles = build_price_history(history, area_lookup)
 
@@ -556,24 +540,7 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
             o["initial_price"] = p.initial_price
             o["last_known_price"] = p.last_known_price
             o["price_per_m2"] = p.current_price_per_m2 or p.last_known_price_per_m2
-
-            if p.price_changes:
-                pts = [
-                    f"{pt.date}: {pt.price or 'cena ukryta'}"
-                    for pt in p.timeline
-                    if pt.event
-                    in (
-                        "new_listing",
-                        "price_change_adjustment",
-                        "price_change_masked",
-                        "price_change_unmasked",
-                    )
-                ]
-                o["history_tooltip"] = " | ".join(pts)
-            elif p.initial_price:
-                o["history_tooltip"] = f"Cena od początku: {p.initial_price}"
-            else:
-                o["history_tooltip"] = ""
+            o["history_tooltip"] = p.history_tooltip
 
     drops_count = sum(1 for o in all_offers if o.get("has_price_drop"))
     drops_pct_avg = (
@@ -701,9 +668,9 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
                 "status": o.get("status", ""),
                 "kind": o.get("status_kind", "unavailable"),
                 "price": o.get("price") or "",
-                "price_num": parse_price_value(o.get("price")),
+                "price_num": parse_price_num(o.get("price")),
                 "area": o.get("area_m2") or "",
-                "area_num": parse_area_value(o.get("area_m2")),
+                "area_num": parse_area_num(o.get("area_m2")),
                 "rooms": o.get("rooms") or "",
                 "floor": o.get("floor") or "",
                 "staircase": o.get("staircase") or "",
@@ -2384,15 +2351,15 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
         }} else if (currentSort === 'drop-pct-desc') {{
           list.sort((a, b) => (a.delta_pct || 0) - (b.delta_pct || 0));
         }} else if (currentSort === 'price-asc') {{
-          list.sort((a, b) => a.price_num - b.price_num);
+          list.sort((a, b) => (a.price_num ?? Infinity) - (b.price_num ?? Infinity));
         }} else if (currentSort === 'price-desc') {{
-          list.sort((a, b) => b.price_num - a.price_num);
+          list.sort((a, b) => (b.price_num ?? 0) - (a.price_num ?? 0));
         }} else if (currentSort === 'area-desc') {{
-          list.sort((a, b) => b.area_num - a.area_num);
+          list.sort((a, b) => (b.area_num ?? 0) - (a.area_num ?? 0));
         }} else if (currentSort === 'area-asc') {{
-          list.sort((a, b) => a.area_num - b.area_num);
+          list.sort((a, b) => (a.area_num ?? Infinity) - (b.area_num ?? Infinity));
         }} else if (currentSort === 'unit-asc') {{
-          list.sort((a, b) => (a.cat + a.unit).localeCompare(b.cat + b.unit));
+          list.sort((a, b) => (a.cat + a.unit).localeCompare(b.cat + b.unit, undefined, {{ numeric: true }}));
         }}
 
         return list;
