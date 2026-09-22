@@ -437,7 +437,10 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
           </div>
         </div>
         <div class="cat-stat-footer">
-          <button class="cat-stat-btn" type="button" onclick="filterCatalogByGroup('{html.escape(name)}')">Zobacz w katalogu ({cat_total}) →</button>
+          <button class="cat-stat-btn" type="button" onclick="filterCatalogByGroup('{html.escape(name)}')">
+            <span>Przeglądaj w katalogu ({cat_total})</span>
+            <span class="btn-arrow" aria-hidden="true">→</span>
+          </button>
         </div>
       </article>"""
         )
@@ -815,6 +818,9 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
       border-radius: var(--radius-md);
       padding: 18px;
       box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
     }}
     .cat-stat-header {{
       display: flex;
@@ -853,6 +859,56 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
     }}
     .cat-stat-label {{ font-size: 0.74rem; color: var(--text-muted); display: flex; align-items: center; gap: 5px; }}
     .cat-stat-val {{ font-size: 1.15rem; font-weight: 800; }}
+
+    .cat-stat-footer {{
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border-subtle);
+    }}
+    .cat-stat-btn {{
+      width: 100%;
+      height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 650;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }}
+    .cat-stat-btn:hover {{
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+      box-shadow: var(--shadow-sm);
+    }}
+    .cat-stat-btn:active {{
+      transform: scale(0.99);
+    }}
+    .cat-stat-btn .btn-arrow {{
+      font-size: 0.9rem;
+      transition: transform 0.15s ease;
+    }}
+    .cat-stat-btn:hover .btn-arrow {{
+      transform: translateX(3px);
+    }}
+
+    .clickable-card {{
+      cursor: pointer;
+      transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    }}
+    .clickable-card:hover {{
+      transform: translateY(-2px);
+      border-color: var(--primary);
+      box-shadow: var(--shadow-md);
+    }}
 
     /* Trend Cards */
     .trends-wrap {{
