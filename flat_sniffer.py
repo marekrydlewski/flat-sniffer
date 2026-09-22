@@ -28,6 +28,8 @@ from pathlib import Path
 
 import httpx
 
+from price_history import format_amount, parse_price_num
+
 BASE_URL = "https://swietegomichala.pl/pl/wyszukiwarka-mieszkan"
 CATEGORIES = {
     1: "Mieszkanie",
@@ -67,9 +69,7 @@ ROOMS_RE = re.compile(r"Pokoje\s*</div>\s*<div[^>]*>\s*(\d+)\s*</div>", re.DOTAL
 DODATKOWE_RE = re.compile(r"Dodatkowe\s*</div>\s*(?P<body>.*?)</div>\s*</div>\s*</div>", re.DOTALL)
 EXTRA_ITEM_RE = re.compile(r'<div class="h4 fs-20 m-0 text-dark">\s*([^<]+?)\s*</div>')
 
-# Fields that may legitimately be absent from a listing chunk (unlike HEAD_RE/STATUS_RE,
-# whose absence means the chunk failed to parse) - each just needs its stripped match
-# group or None.
+# Optional listing fields (regex match or None).
 OPTIONAL_FIELD_RES = {
     "price": PRICE_RE,
     "price_per_m2": PRICE_M2_RE,
@@ -99,14 +99,11 @@ def fetch(id_typ: int) -> str:
 
 
 def _opt_group(m: re.Match | None, group: int = 1) -> str | None:
-    """Returns the stripped match group, or None if the regex didn't match."""
     return m.group(group).strip() if m else None
 
 
 def _norm(s: str) -> str:
-    """Strips and Unicode-NFC-normalizes a string so a cosmetic re-rendering
-    difference (e.g. a different composition of a diacritic) between two runs
-    can't masquerade as the value having actually changed."""
+    """NFC-normalize strings so cosmetic diacritic differences don't trigger false diffs."""
     return unicodedata.normalize("NFC", s.strip())
 
 
@@ -156,10 +153,7 @@ def fetch_all() -> tuple[dict[str, dict], list[str]]:
         offers, failed = parse_offers(html)
         total_chunks = len(offers) + failed
         if total_chunks == 0:
-            # Every category has always had listings; zero chunks found at all - not
-            # just zero parsed - means the page is blocked/empty/restructured, not
-            # that the category genuinely has nothing for sale. Catches this even on
-            # the very first run, when sanity_check() has no baseline to compare to.
+            # Zero chunks indicates scrape/blocking failure, not actual 100% sellout.
             problems.append(
                 f"category '{label}': found 0 listings at all - looks like the page "
                 f"is blocked, empty, or completely restructured, not real sales"
@@ -223,15 +217,12 @@ def append_history(events: list[dict]) -> None:
             f.write(json.dumps(e, ensure_ascii=False) + "\n")
 
 
-SANITY_MIN_ABSOLUTE_DROP = 3  # ignore small categories where a real bulk sale could hit this
-SANITY_MIN_RATIO_DROP = 0.5  # and require the drop to be at least this severe, relatively
+SANITY_MIN_ABSOLUTE_DROP = 3
+SANITY_MIN_RATIO_DROP = 0.5
 
 
 def sanity_check(old: dict, new: dict) -> list[str]:
-    """Returns a list of anomaly descriptions if `new` looks like a broken/blocked
-    scrape rather than real data: a category whose listing count collapses (not just
-    hits zero) between runs - almost always a site/markup/blocking problem, not a
-    sudden wave of real sales."""
+    """Flag abnormal category collapses between runs (likely scrape failure rather than real sales)."""
     if not old:
         return []
     old_counts = Counter(o["category"] for o in old.values())
@@ -307,8 +298,8 @@ def diff_registries(old: dict, new: dict) -> list[dict]:
         if o_old.get("price") != o_new.get("price"):
             old_p = o_old.get("price")
             new_p = o_new.get("price")
-            old_num = _parse_digits(old_p)
-            new_num = _parse_digits(new_p)
+            old_num = parse_price_num(old_p)
+            new_num = parse_price_num(new_p)
 
             price_event: dict = {
                 "ts": now,
@@ -345,13 +336,6 @@ EVENT_TAGS = {
 }
 
 
-def _parse_digits(val: str | None) -> int | None:
-    if not val:
-        return None
-    d = "".join(ch for ch in str(val) if ch.isdigit())
-    return int(d) if d else None
-
-
 def _fmt_price(p) -> str:
     return p if p is not None else "price unavailable"
 
@@ -363,8 +347,8 @@ def _fmt_price_change(e: dict) -> str:
     delta_pct = e.get("delta_pct")
 
     if delta_amount is None and e.get("old_price") and e.get("new_price"):
-        o_n = _parse_digits(e["old_price"])
-        n_n = _parse_digits(e["new_price"])
+        o_n = parse_price_num(e["old_price"])
+        n_n = parse_price_num(e["new_price"])
         if o_n is not None and n_n is not None:
             delta_amount = n_n - o_n
             if o_n > 0:
@@ -373,7 +357,7 @@ def _fmt_price_change(e: dict) -> str:
     delta_str = ""
     if delta_amount is not None:
         sign = "+" if delta_amount > 0 else ""
-        formatted_num = f"{delta_amount:,}".replace(",", " ")
+        formatted_num = format_amount(delta_amount)
         pct_str = f", {sign}{delta_pct:.2f}%" if delta_pct is not None else ""
         delta_str = f" ({sign}{formatted_num} zł{pct_str})"
 

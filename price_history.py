@@ -186,153 +186,151 @@ def build_price_history(
         if e.get("url") and not p.url:
             p.url = e["url"]
 
-        if event_name == "new_listing":
-            price_raw = e.get("price")
-            price_num = parse_price_num(price_raw)
-            status = e.get("status")
+        match event_name:
+            case "new_listing":
+                price_raw = e.get("price")
+                price_num = parse_price_num(price_raw)
+                status = e.get("status")
 
-            p.initial_price = price_raw
-            p.initial_price_num = price_num
-            p.current_price = price_raw
-            p.current_price_num = price_num
-            p.last_known_price = price_raw
-            p.last_known_price_num = price_num
-            p.current_status = status
+                p.initial_price = price_raw
+                p.initial_price_num = price_num
+                p.current_price = price_raw
+                p.current_price_num = price_num
+                p.last_known_price = price_raw
+                p.last_known_price_num = price_num
+                p.current_status = status
 
-            ppm2 = round(price_num / p.area_m2) if price_num and p.area_m2 else None
-            p.initial_price_per_m2 = ppm2
-            p.current_price_per_m2 = ppm2
-            p.last_known_price_per_m2 = ppm2
-
-            p.timeline.append(
-                PricePoint(
-                    date=dt,
-                    timestamp=ts,
-                    price=price_raw,
-                    price_num=price_num,
-                    price_per_m2=ppm2,
-                    status=status,
-                    event="new_listing",
-                )
-            )
-
-        elif event_name == "price_change":
-            old_raw = e.get("old_price")
-            new_raw = e.get("new_price")
-            old_num = parse_price_num(old_raw)
-            new_num = parse_price_num(new_raw)
-
-            # Establish initial price baseline if new_listing was somehow missing
-            if p.initial_price_num is None and old_num is not None:
-                p.initial_price = old_raw
-                p.initial_price_num = old_num
-                if p.area_m2:
-                    p.initial_price_per_m2 = round(old_num / p.area_m2)
-
-            change_type = "adjustment"
-            delta_amount: int | None = None
-            delta_pct: float | None = None
-
-            if old_num is not None and new_num is not None:
-                # Real price adjustment
-                delta_amount = new_num - old_num
-                delta_pct = round((delta_amount / old_num) * 100, 2) if old_num > 0 else None
-                change_type = "adjustment"
-                p.current_price = new_raw
-                p.current_price_num = new_num
-                p.last_known_price = new_raw
-                p.last_known_price_num = new_num
-
-            elif old_num is not None and new_num is None:
-                # Price hidden / masked (e.g. reservation)
-                change_type = "masked"
-                p.current_price = None
-                p.current_price_num = None
-                # Keep last_known_price intact!
-
-            elif old_num is None and new_num is not None:
-                # Price unmasked (e.g. reservation released)
-                if p.last_known_price_num is not None and new_num != p.last_known_price_num:
-                    delta_amount = new_num - p.last_known_price_num
-                    delta_pct = (
-                        round((delta_amount / p.last_known_price_num) * 100, 2) if p.last_known_price_num > 0 else None
-                    )
-                    change_type = "adjustment_after_masked"
-                else:
-                    change_type = "unmasked"
-
-                p.current_price = new_raw
-                p.current_price_num = new_num
-                p.last_known_price = new_raw
-                p.last_known_price_num = new_num
-
-            ppm2 = round(new_num / p.area_m2) if new_num and p.area_m2 else None
-            if ppm2 is not None:
+                ppm2 = round(price_num / p.area_m2) if price_num and p.area_m2 else None
+                p.initial_price_per_m2 = ppm2
                 p.current_price_per_m2 = ppm2
                 p.last_known_price_per_m2 = ppm2
-            elif new_num is None:
-                p.current_price_per_m2 = None
 
-            p.price_changes.append(
-                PriceChange(
-                    date=dt,
-                    timestamp=ts,
-                    old_price=old_raw,
-                    new_price=new_raw,
-                    old_price_num=old_num,
-                    new_price_num=new_num,
-                    delta_amount=delta_amount,
-                    delta_pct=delta_pct,
-                    change_type=change_type,
-                    status=p.current_status,
+                p.timeline.append(
+                    PricePoint(
+                        date=dt,
+                        timestamp=ts,
+                        price=price_raw,
+                        price_num=price_num,
+                        price_per_m2=ppm2,
+                        status=status,
+                        event="new_listing",
+                    )
                 )
-            )
 
-            p.timeline.append(
-                PricePoint(
-                    date=dt,
-                    timestamp=ts,
-                    price=new_raw,
-                    price_num=new_num,
-                    price_per_m2=ppm2,
-                    status=p.current_status,
-                    event=f"price_change_{change_type}",
-                )
-            )
+            case "price_change":
+                old_raw = e.get("old_price")
+                new_raw = e.get("new_price")
+                old_num = parse_price_num(old_raw)
+                new_num = parse_price_num(new_raw)
 
-        elif event_name == "status_change":
-            new_status = e.get("new_status")
-            p.current_status = new_status
-            if e.get("price"):
-                p.current_price = e["price"]
-                p.current_price_num = parse_price_num(e["price"])
-                p.last_known_price = e["price"]
-                p.last_known_price_num = p.current_price_num
-            p.timeline.append(
-                PricePoint(
-                    date=dt,
-                    timestamp=ts,
-                    price=p.current_price,
-                    price_num=p.current_price_num,
-                    price_per_m2=p.current_price_per_m2,
-                    status=new_status,
-                    event="status_change",
-                )
-            )
+                if p.initial_price_num is None and old_num is not None:
+                    p.initial_price = old_raw
+                    p.initial_price_num = old_num
+                    if p.area_m2:
+                        p.initial_price_per_m2 = round(old_num / p.area_m2)
 
-        elif event_name == "removed_from_listing":
-            p.current_status = "Usunięte / Sprzedane"
-            p.timeline.append(
-                PricePoint(
-                    date=dt,
-                    timestamp=ts,
-                    price=e.get("price") or p.last_known_price,
-                    price_num=parse_price_num(e.get("price")) or p.last_known_price_num,
-                    price_per_m2=p.last_known_price_per_m2,
-                    status="Usunięte / Sprzedane",
-                    event="removed_from_listing",
+                change_type = "adjustment"
+                delta_amount: int | None = None
+                delta_pct: float | None = None
+
+                if old_num is not None and new_num is not None:
+                    delta_amount = new_num - old_num
+                    delta_pct = round((delta_amount / old_num) * 100, 2) if old_num > 0 else None
+                    change_type = "adjustment"
+                    p.current_price = new_raw
+                    p.current_price_num = new_num
+                    p.last_known_price = new_raw
+                    p.last_known_price_num = new_num
+
+                elif old_num is not None and new_num is None:
+                    change_type = "masked"
+                    p.current_price = None
+                    p.current_price_num = None
+
+                elif old_num is None and new_num is not None:
+                    if p.last_known_price_num is not None and new_num != p.last_known_price_num:
+                        delta_amount = new_num - p.last_known_price_num
+                        delta_pct = (
+                            round((delta_amount / p.last_known_price_num) * 100, 2)
+                            if p.last_known_price_num > 0
+                            else None
+                        )
+                        change_type = "adjustment_after_masked"
+                    else:
+                        change_type = "unmasked"
+
+                    p.current_price = new_raw
+                    p.current_price_num = new_num
+                    p.last_known_price = new_raw
+                    p.last_known_price_num = new_num
+
+                ppm2 = round(new_num / p.area_m2) if new_num and p.area_m2 else None
+                if ppm2 is not None:
+                    p.current_price_per_m2 = ppm2
+                    p.last_known_price_per_m2 = ppm2
+                elif new_num is None:
+                    p.current_price_per_m2 = None
+
+                p.price_changes.append(
+                    PriceChange(
+                        date=dt,
+                        timestamp=ts,
+                        old_price=old_raw,
+                        new_price=new_raw,
+                        old_price_num=old_num,
+                        new_price_num=new_num,
+                        delta_amount=delta_amount,
+                        delta_pct=delta_pct,
+                        change_type=change_type,
+                        status=p.current_status,
+                    )
                 )
-            )
+
+                p.timeline.append(
+                    PricePoint(
+                        date=dt,
+                        timestamp=ts,
+                        price=new_raw,
+                        price_num=new_num,
+                        price_per_m2=ppm2,
+                        status=p.current_status,
+                        event=f"price_change_{change_type}",
+                    )
+                )
+
+            case "status_change":
+                new_status = e.get("new_status")
+                p.current_status = new_status
+                if e.get("price"):
+                    p.current_price = e["price"]
+                    p.current_price_num = parse_price_num(e["price"])
+                    p.last_known_price = e["price"]
+                    p.last_known_price_num = p.current_price_num
+                p.timeline.append(
+                    PricePoint(
+                        date=dt,
+                        timestamp=ts,
+                        price=p.current_price,
+                        price_num=p.current_price_num,
+                        price_per_m2=p.current_price_per_m2,
+                        status=new_status,
+                        event="status_change",
+                    )
+                )
+
+            case "removed_from_listing":
+                p.current_status = "Usunięte / Sprzedane"
+                p.timeline.append(
+                    PricePoint(
+                        date=dt,
+                        timestamp=ts,
+                        price=e.get("price") or p.last_known_price,
+                        price_num=parse_price_num(e.get("price")) or p.last_known_price_num,
+                        price_per_m2=p.last_known_price_per_m2,
+                        status="Usunięte / Sprzedane",
+                        event="removed_from_listing",
+                    )
+                )
 
     # Compute overall delta and flags
     for p in profiles.values():

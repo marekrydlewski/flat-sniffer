@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Świętego Michała · Pulpit Dostępności</title>
+  <meta name="description" content="Monitor zmian dostępności, rezerwacji i cen mieszkań i lokali w inwestycji Świętego Michała w Poznaniu.">
+  <style>
+{{styles}}
+  </style>
+</head>
+<body>
+
+  <!-- Top Sticky Bar -->
+  <header class="top-header">
+    <div class="header-inner">
+      <div class="brand-wrap">
+        <div class="brand-logo">ŚM</div>
+        <div>
+          <span class="brand-title">Świętego Michała</span>
+          <span class="brand-sub">Poznań · Pulpit Inwestycji</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn-icon" id="theme-toggle" aria-label="Przełącz tryb ciemny" title="Przełącz motyw">🌓</button>
+        <a class="ext-link-btn" href="https://swietegomichala.pl/pl/wyszukiwarka-mieszkan" target="_blank" rel="noreferrer">
+          <span>Strona dewelopera</span> ↗
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Hero Info -->
+    <section class="hero">
+      <div class="hero-meta">
+        <span class="live-badge"><span class="pulse-dot"></span> Monitor aktywny</span>
+        <span>Ostatnia aktualizacja: <strong>{{generated}}</strong></span>
+        <span>Wykryte zmiany w tej sesji: <strong>{{events_count}}</strong></span>
+      </div>
+    </section>
+
+    <!-- KPI Summary Grid -->
+    <section class="kpi-grid" aria-label="Główne wskaźniki">
+      <div class="kpi-card kpi-avail clickable-card" role="button" tabindex="0" onclick="filterCatalogByStatus('available')" title="Pokaż wolne lokale w katalogu">
+        <span class="kpi-title">Wolne lokale ↗</span>
+        <strong class="kpi-num">{{avail_count}}</strong>
+        <span class="kpi-sub">{{avail_pct}}% całej oferty</span>
+      </div>
+      <div class="kpi-card kpi-res clickable-card" role="button" tabindex="0" onclick="filterCatalogByStatus('reserved')" title="Pokaż rezerwacje w katalogu">
+        <span class="kpi-title">Rezerwacje ↗</span>
+        <strong class="kpi-num">{{res_count}}</strong>
+        <span class="kpi-sub">{{res_pct}}% całej oferty</span>
+      </div>
+      <div class="kpi-card kpi-sold clickable-card" role="button" tabindex="0" onclick="filterCatalogByStatus('sold')" title="Pokaż sprzedane w katalogu">
+        <span class="kpi-title">Sprzedane / Zniknięte ↗</span>
+        <strong class="kpi-num">{{sold_count}}</strong>
+        <span class="kpi-sub">{{sold_pct}}% całej oferty</span>
+      </div>
+      <div class="kpi-card kpi-drops clickable-card" role="button" tabindex="0" onclick="filterCatalogByPriceDrops()" title="Pokaż obniżki cen w katalogu">
+        <span class="kpi-title">Obniżki cen ↗</span>
+        <strong class="kpi-num">{{drops_count}}</strong>
+        <span class="kpi-sub">{{drops_sub}}</span>
+      </div>
+      <div class="kpi-card kpi-total clickable-card" role="button" tabindex="0" onclick="filterCatalogByStatus('all')" title="Pokaż wszystkie lokale w katalogu">
+        <span class="kpi-title">Łącznie znanych ↗</span>
+        <strong class="kpi-num">{{total_known}}</strong>
+        <span class="kpi-sub">{{active_count}} na stronie dewelopera</span>
+      </div>
+    </section>
+
+    <!-- Primary Navigation Tabs -->
+    <nav class="nav-tabs" role="tablist" aria-label="Główne widoki strony">
+      <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="tab-overview" data-target="tab-overview" onclick="switchTab('tab-overview')">
+        <span>📊 Przegląd & Trendy</span>
+      </button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-catalog" data-target="tab-catalog" onclick="switchTab('tab-catalog')">
+        <span>🏢 Katalog Ofert</span>
+        <span class="tab-badge">{{total_known}}</span>
+      </button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-timeline" data-target="tab-timeline" onclick="switchTab('tab-timeline')">
+        <span>⏱️ Oś Czasu</span>
+        <span class="tab-badge">{{history_count}}</span>
+      </button>
+    </nav>
+
+    <!-- TAB 1: OVERVIEW -->
+    <div id="tab-overview" class="tab-panel active" role="tabpanel">
+      <!-- Latest changes preview -->
+      <section class="section-spacer">
+        <div class="section-head">
+          <div>
+            <h2>Ostatnie zdarzenia</h2>
+            <p>Najnowsze wykryte zmiany dostępności, cen lub statusów.</p>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="switchTab('tab-timeline')">Pełna oś czasu ({{history_count}}) →</button>
+        </div>
+        {{latest_changes_html}}
+      </section>
+
+      <!-- Category progress breakdown -->
+      <section class="section-spacer">
+        <div class="section-head">
+          <div>
+            <h2>Kondycja oferty wg kategorii</h2>
+            <p>Stosunek lokali wolnych, zarezerwowanych i sprzedanych.</p>
+          </div>
+        </div>
+        <div class="cat-stats-grid">
+          {{categories_html}}
+        </div>
+      </section>
+
+      <!-- Trends: Disappearances in last 21 days & 8 weeks -->
+      <section>
+        <div class="section-head">
+          <div>
+            <h2>Dynamika sprzedaży &amp; zniknięć z oferty</h2>
+            <p>Zniknięcie ze strony dewelopera zazwyczaj oznacza sfinalizowaną sprzedaż lub wycofanie oferty.</p>
+          </div>
+          <div class="trend-toggle-group" role="group" aria-label="Wybierz okres trendów">
+            <button class="pill-btn active" data-trend-btn="weeks" onclick="switchTrendView('weeks')">Tygodnie (8 tyg.)</button>
+            <button class="pill-btn" data-trend-btn="days" onclick="switchTrendView('days')">Dni (21 dni)</button>
+          </div>
+        </div>
+        <div id="trend-view-weeks" class="trends-wrap">{{weekly_trends_html}}</div>
+        <div id="trend-view-days" class="trends-wrap" style="display:none;">{{daily_trends_html}}</div>
+      </section>
+    </div>
+
+    <!-- TAB 2: CATALOG OF OFFERS -->
+    <div id="tab-catalog" class="tab-panel" role="tabpanel">
+      <div class="catalog-bar">
+        <div class="catalog-bar-top">
+          <div class="search-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="search" id="catalog-search" class="search-input" placeholder="Szukaj lokalu (np. 34_1, KL10, parter, 40 m²)..." autocomplete="off" aria-label="Wyszukaj lokal">
+            <button id="search-clear-btn" class="search-clear-btn" type="button" aria-label="Wyczyść wyszukiwanie" style="display:none;" title="Wyczyść frazę">✕</button>
+          </div>
+          <select id="catalog-sort" class="sort-select" aria-label="Sortowanie ofert">
+            <option value="default">Sortowanie domyślne</option>
+            <option value="drop-desc">🔥 Największa obniżka (zł)</option>
+            <option value="drop-pct-desc">🔥 Największa obniżka (%)</option>
+            <option value="price-asc">Cena: od najniższej</option>
+            <option value="price-desc">Cena: od najwyższej</option>
+            <option value="area-desc">Metraż: od największego</option>
+            <option value="area-asc">Metraż: od najmniejszego</option>
+            <option value="unit-asc">Numer lokalu (A-Z)</option>
+          </select>
+          <button id="view-mode-toggle" class="btn btn-secondary btn-sm" type="button" title="Przełącz widok siatka/lista">Widok: Kafelki</button>
+        </div>
+
+        <div class="filter-pills-row" id="price-filters">
+          <span class="filter-label">Cena:</span>
+          <button type="button" class="pill-btn active" data-price-filter="all" onclick="setPriceFilter('all')">Wszystkie</button>
+          <button type="button" class="pill-btn" data-price-filter="drops" onclick="setPriceFilter('drops')">🔥 Obniżki cen ({{drops_count}})</button>
+        </div>
+
+        <div class="filter-pills-row" id="category-filters">
+          <span class="filter-label">Kategoria:</span>
+          <button type="button" class="pill-btn active" data-cat-filter="all" onclick="setCategoryFilter('all')">Wszystkie</button>
+          <button type="button" class="pill-btn" data-cat-filter="Mieszkanie" onclick="setCategoryFilter('Mieszkanie')">Mieszkania</button>
+          <button type="button" class="pill-btn" data-cat-filter="Hala garażowa,Miejsce postojowe" onclick="setCategoryFilter('Hala garażowa,Miejsce postojowe')">Parkowanie</button>
+          <button type="button" class="pill-btn" data-cat-filter="Komórka" onclick="setCategoryFilter('Komórka')">Komórki</button>
+        </div>
+
+        <div class="filter-pills-row" id="status-filters">
+          <span class="filter-label">Status:</span>
+          <button type="button" class="pill-btn active" data-status-filter="all" onclick="setStatusFilter('all')">Wszystkie</button>
+          <button type="button" class="pill-btn" data-status-filter="available" onclick="setStatusFilter('available')">Wolne</button>
+          <button type="button" class="pill-btn" data-status-filter="reserved" onclick="setStatusFilter('reserved')">Rezerwacje</button>
+          <button type="button" class="pill-btn" data-status-filter="sold" onclick="setStatusFilter('sold')">Sprzedane</button>
+        </div>
+
+        <div id="active-filters-bar" class="active-filters-bar" style="display:none;">
+          <div class="active-filters-left">
+            <span class="active-filters-label">Aktywne filtry (<span id="active-filters-count">0</span>):</span>
+            <div id="active-filter-tags" class="active-filter-tags"></div>
+          </div>
+          <button id="reset-filters-btn" class="reset-filters-btn" type="button" onclick="resetAllFilters()">Resetuj filtry ✕</button>
+        </div>
+      </div>
+
+      <!-- Inventory Grid -->
+      <div id="catalog-grid" class="inventory-grid">
+        {{catalog_cards_html}}
+      </div>
+
+      <!-- Pagination / Load more -->
+      <div class="pagination-bar" id="pagination-wrap">
+        <button id="load-more-btn" class="btn btn-secondary" type="button">Pokaż więcej ofert</button>
+      </div>
+      <p class="catalog-count-note" id="catalog-count-note">Wyświetlono <span id="visible-count">0</span> z <span id="total-count">{{total_known}}</span> pozycji</p>
+    </div>
+
+    <!-- TAB 3: TIMELINE / CHANGELOG -->
+    <div id="tab-timeline" class="tab-panel" role="tabpanel">
+      <div class="timeline-controls-bar">
+        <div>
+          <span class="grouping-label">Grupowanie:</span>
+          <div class="grouping-pills" role="group" aria-label="Wybierz sposób grupowania osi czasu">
+            <button class="group-btn active" data-timeline-view="week" onclick="switchTimelineGrouping('week')">Tygodnie</button>
+            <button class="group-btn" data-timeline-view="month" onclick="switchTimelineGrouping('month')">Miesiące</button>
+            <button class="group-btn" data-timeline-view="day" onclick="switchTimelineGrouping('day')">Dni</button>
+          </div>
+        </div>
+
+        <div class="timeline-filter-pills" id="timeline-event-filters">
+          <button class="pill-btn active" data-timeline-type="all">Wszystkie ({{history_count}})</button>
+          <button class="pill-btn" data-timeline-type="new_listing">Nowe</button>
+          <button class="pill-btn" data-timeline-type="status_change">Zmiany statusu</button>
+          <button class="pill-btn" data-timeline-type="price_change">Zmiany cen</button>
+          <button class="pill-btn" data-timeline-type="removed_from_listing">Zniknięcia</button>
+        </div>
+      </div>
+
+      <!-- Timeline Views -->
+      <div id="timeline-view-week" class="timeline-view-panel active">
+        {{timeline_weeks_html}}
+      </div>
+      <div id="timeline-view-month" class="timeline-view-panel">
+        {{timeline_months_html}}
+      </div>
+      <div id="timeline-view-day" class="timeline-view-panel">
+        {{timeline_days_html}}
+      </div>
+    </div>
+  </main>
+
+  <script id="offers-data" type="application/json">
+{{offers_json}}
+  </script>
+
+  <script>
+{{app_js}}
+  </script>
+</body>
+</html>
