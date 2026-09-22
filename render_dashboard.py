@@ -557,23 +557,7 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
             o["last_known_price"] = p.last_known_price
             o["price_per_m2"] = p.current_price_per_m2 or p.last_known_price_per_m2
 
-            if p.price_changes:
-                pts = [
-                    f"{pt.date}: {pt.price or 'cena ukryta'}"
-                    for pt in p.timeline
-                    if pt.event
-                    in (
-                        "new_listing",
-                        "price_change_adjustment",
-                        "price_change_masked",
-                        "price_change_unmasked",
-                    )
-                ]
-                o["history_tooltip"] = " | ".join(pts)
-            elif p.initial_price:
-                o["history_tooltip"] = f"Cena od początku: {p.initial_price}"
-            else:
-                o["history_tooltip"] = ""
+            o["history_tooltip"] = p.history_tooltip
 
     drops_count = sum(1 for o in all_offers if o.get("has_price_drop"))
     drops_pct_avg = (
