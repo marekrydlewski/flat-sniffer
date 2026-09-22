@@ -305,18 +305,34 @@ def diff_registries(old: dict, new: dict) -> list[dict]:
                 }
             )
         if o_old.get("price") != o_new.get("price"):
-            events.append(
-                {
-                    "ts": now,
-                    "event": "price_change",
-                    "id": oid,
-                    "category": o_new["category"],
-                    "unit": o_new["unit"],
-                    "old_price": o_old.get("price"),
-                    "new_price": o_new.get("price"),
-                    "url": o_new["url"],
-                }
-            )
+            old_p = o_old.get("price")
+            new_p = o_new.get("price")
+            old_num = _parse_digits(old_p)
+            new_num = _parse_digits(new_p)
+
+            price_event: dict = {
+                "ts": now,
+                "event": "price_change",
+                "id": oid,
+                "category": o_new["category"],
+                "unit": o_new["unit"],
+                "old_price": old_p,
+                "new_price": new_p,
+                "url": o_new["url"],
+            }
+
+            if old_num is not None and new_num is not None:
+                delta = new_num - old_num
+                price_event["delta_amount"] = delta
+                if old_num > 0:
+                    price_event["delta_pct"] = round((delta / old_num) * 100, 2)
+                price_event["change_type"] = "adjustment"
+            elif old_num is not None and new_num is None:
+                price_event["change_type"] = "masked"
+            elif old_num is None and new_num is not None:
+                price_event["change_type"] = "unmasked"
+
+            events.append(price_event)
 
     return events
 
@@ -329,15 +345,44 @@ EVENT_TAGS = {
 }
 
 
+def _parse_digits(val: str | None) -> int | None:
+    if not val:
+        return None
+    d = "".join(ch for ch in str(val) if ch.isdigit())
+    return int(d) if d else None
+
+
 def _fmt_price(p) -> str:
     return p if p is not None else "price unavailable"
 
 
+def _fmt_price_change(e: dict) -> str:
+    old_p = _fmt_price(e.get("old_price"))
+    new_p = _fmt_price(e.get("new_price"))
+    delta_amount = e.get("delta_amount")
+    delta_pct = e.get("delta_pct")
+
+    if delta_amount is None and e.get("old_price") and e.get("new_price"):
+        o_n = _parse_digits(e["old_price"])
+        n_n = _parse_digits(e["new_price"])
+        if o_n is not None and n_n is not None:
+            delta_amount = n_n - o_n
+            if o_n > 0:
+                delta_pct = round((delta_amount / o_n) * 100, 2)
+
+    delta_str = ""
+    if delta_amount is not None:
+        sign = "+" if delta_amount > 0 else ""
+        formatted_num = f"{delta_amount:,}".replace(",", " ")
+        pct_str = f", {sign}{delta_pct:.2f}%" if delta_pct is not None else ""
+        delta_str = f" ({sign}{formatted_num} zł{pct_str})"
+
+    return f"{e['category']} {e['unit']}: {old_p} -> {new_p}{delta_str} ({e['url']})"
+
+
 _EVENT_FORMATTERS = {
     "status_change": lambda e: f"{e['category']} {e['unit']}: {e['old_status']} -> {e['new_status']} ({e['url']})",
-    "price_change": lambda e: (
-        f"{e['category']} {e['unit']}: {_fmt_price(e['old_price'])} -> {_fmt_price(e['new_price'])} ({e['url']})"
-    ),
+    "price_change": _fmt_price_change,
     "new_listing": lambda e: f"{e['category']} {e['unit']}: {e['status']} @ {_fmt_price(e['price'])} ({e['url']})",
     "removed_from_listing": lambda e: (
         f"{e['category']} {e['unit']}: was {e['last_status']} @ {_fmt_price(e['price'])} - {e['note']} ({e['url']})"

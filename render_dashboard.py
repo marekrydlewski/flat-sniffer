@@ -10,6 +10,8 @@ from collections import Counter
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from price_history import build_price_history, format_amount
+
 try:
     from datetime import UTC
 except ImportError:
@@ -166,18 +168,73 @@ def offer_card_html(offer: dict) -> str:
 
     label = status_label(kind)
 
+    price_content = ""
+    if offer.get("has_price_drop"):
+        delta_amt = offer.get("total_delta_amount")
+        delta_pct = offer.get("total_delta_pct")
+        init_p = offer.get("initial_price")
+        history_tooltip = offer.get("history_tooltip", "")
+        if delta_amt is not None and delta_pct is not None:
+            delta_str = format_amount(abs(delta_amt))
+            pct_formatted = f"{delta_pct:.1f}%"
+            tooltip_attr = f' title="{html.escape(history_tooltip)}"' if history_tooltip else ""
+            price_content = f"""<div class="card-price-col">
+          <div class="card-price-topline">
+            <span class="card-old-price">{html.escape(init_p or "")}</span>
+            <span class="price-drop-pill"{tooltip_attr}>↓ -{delta_str} zł ({pct_formatted})</span>
+          </div>
+          <strong class="card-price">{html.escape(price)}</strong>
+        </div>"""
+    elif offer.get("has_price_rise"):
+        delta_amt = offer.get("total_delta_amount")
+        delta_pct = offer.get("total_delta_pct")
+        init_p = offer.get("initial_price")
+        history_tooltip = offer.get("history_tooltip", "")
+        if delta_amt is not None and delta_pct is not None:
+            delta_str = format_amount(delta_amt)
+            pct_formatted = f"+{delta_pct:.1f}%"
+            tooltip_attr = f' title="{html.escape(history_tooltip)}"' if history_tooltip else ""
+            price_content = f"""<div class="card-price-col">
+          <div class="card-price-topline">
+            <span class="card-old-price">{html.escape(init_p or "")}</span>
+            <span class="price-rise-pill"{tooltip_attr}>↑ +{delta_str} zł ({pct_formatted})</span>
+          </div>
+          <strong class="card-price">{html.escape(price)}</strong>
+        </div>"""
+
+    if not price_content:
+        if (not offer.get("price")) and offer.get("last_known_price"):
+            last_p = offer["last_known_price"]
+            price_content = f"""<div class="card-price-col">
+          <strong class="card-price price-muted">Cena ukryta</strong>
+          <span class="card-last-known">ostatnio: {html.escape(last_p)}</span>
+        </div>"""
+        else:
+            price_content = f'<strong class="card-price">{html.escape(price)}</strong>'
+
+    is_recent = offer.get("is_recent", False)
+    recent_badge = (
+        '<span class="badge-recent-change" title="Pozycja zmieniła się w ostatnim sprawdzeniu">✦ Ostatnia zmiana</span>'
+        if is_recent
+        else ""
+    )
+
     return f"""<a class="flat-card status-border-{kind}" href="{html.escape(url, quote=True)}" target="_blank" rel="noreferrer" data-category="{html.escape(cat)}" data-status="{kind}" data-group="{html.escape(group_name(cat))}">
       <div class="card-header">
         <div class="card-title-wrap">
           <span class="status-dot dot-{kind}" aria-hidden="true"></span>
           <span class="card-unit">{html.escape(cat)} {html.escape(unit)}</span>
+          {recent_badge}
         </div>
-        <span class="status-pill pill-{kind}">{html.escape(label)}</span>
+        <div class="card-header-actions">
+          <button class="card-copy-btn" type="button" title="Kopiuj link do schowka" onclick="copyOfferLink(event, '{html.escape(url, quote=True)}')">🔗</button>
+          <span class="status-pill pill-{kind}">{html.escape(label)}</span>
+        </div>
       </div>
       <div class="card-body">
         <span class="card-meta">{html.escape(meta_text)}</span>
         <div class="card-price-row">
-          <strong class="card-price">{html.escape(price)}</strong>
+          {price_content}
           <span class="card-link-icon" aria-hidden="true">↗</span>
         </div>
       </div>
@@ -197,7 +254,23 @@ def event_card_html(event: dict) -> str:
     elif event_type == "price_change":
         old_p = event.get("old_price") or "—"
         new_p = event.get("new_price") or "—"
-        summary = f'<span class="diff-old">{html.escape(old_p)}</span> <span class="diff-arrow">→</span> <strong class="diff-new">{html.escape(new_p)}</strong>'
+        delta_amount = event.get("delta_amount")
+        delta_pct = event.get("delta_pct")
+        if delta_amount is None and event.get("old_price") and event.get("new_price"):
+            old_num = parse_price_value(event.get("old_price"))
+            new_num = parse_price_value(event.get("new_price"))
+            if old_num != float("inf") and new_num != float("inf"):
+                delta_amount = int(new_num - old_num)
+                delta_pct = round((delta_amount / old_num) * 100, 2)
+
+        delta_badge = ""
+        if delta_amount is not None:
+            sign = "+" if delta_amount > 0 else ""
+            delta_cls = "event-delta-drop" if delta_amount < 0 else "event-delta-rise"
+            delta_badge = (
+                f' <span class="{delta_cls}">{sign}{format_amount(delta_amount)} zł ({sign}{delta_pct:.2f}%)</span>'
+            )
+        summary = f'<span class="diff-old">{html.escape(old_p)}</span> <span class="diff-arrow">→</span> <strong class="diff-new">{html.escape(new_p)}</strong>{delta_badge}'
     elif event_type == "removed_from_listing":
         last_st = event.get("last_status")
         last_info = f" (było: {last_st})" if last_st else ""
@@ -285,6 +358,98 @@ def build_timeline_html(history: list[dict], view: str) -> str:
         )
 
     return "".join(sections)
+
+
+def weekly_trend_charts(history: list[dict], weeks_count: int = 8) -> str:
+    today = datetime.now(UTC).date()
+    current_monday = today - timedelta(days=today.weekday())
+
+    week_counts: dict[str, Counter] = {}
+    weeks: list[dict[str, str]] = []
+    for i in range(weeks_count - 1, -1, -1):
+        m = current_monday - timedelta(weeks=i)
+        s = m + timedelta(days=6)
+        year, w_num, _ = m.isocalendar()
+        k = f"{year}-W{w_num:02d}"
+        week_counts[k] = Counter()
+        weeks.append(
+            {
+                "key": k,
+                "label": f"T{w_num}",
+                "range": f"{m:%d.%m}–{s:%d.%m}",
+                "full_label": f"Tydzień {w_num} ({m:%d.%m} – {s:%d.%m.%Y})",
+            }
+        )
+
+    for event in history:
+        if event.get("event") != "removed_from_listing":
+            continue
+        ts = event.get("ts", "")
+        try:
+            dt = datetime.fromisoformat(ts).date()
+            y, w, _ = dt.isocalendar()
+            k = f"{y}-W{w:02d}"
+            if k in week_counts:
+                grp = group_name(event.get("category", ""))
+                week_counts[k][grp] += 1
+        except (ValueError, TypeError):
+            continue
+
+    charts = []
+    width, height = 280, 88
+    chart_h = 52
+    padding_x = 10
+    avail_w = width - 2 * padding_x
+    n_weeks = len(weeks)
+    col_w = 18
+    gap = (avail_w - n_weeks * col_w) / (n_weeks - 1) if n_weeks > 1 else 0
+    color_classes = ["trend-chart-apartments", "trend-chart-parking", "trend-chart-storage"]
+
+    for index, group in enumerate(GROUPS):
+        values = [week_counts[w["key"]][group] for w in weeks]
+        total_gone = sum(values)
+        max_val = max(max(values), 1)
+
+        columns_svg = []
+        for i, (w, val) in enumerate(zip(weeks, values)):
+            x = padding_x + i * (col_w + gap)
+            columns_svg.append(
+                f'<rect x="{x:.1f}" y="12" width="{col_w}" height="{chart_h}" rx="4" class="col-track">'
+                f"<title>{html.escape(w['full_label'])}: {val} zniknięć</title></rect>"
+            )
+            if val > 0:
+                bar_h = max(int((val / max_val) * chart_h), 6)
+                bar_y = 12 + chart_h - bar_h
+                columns_svg.append(
+                    f'<rect x="{x:.1f}" y="{bar_y}" width="{col_w}" height="{bar_h}" rx="4" class="col-fill">'
+                    f"<title>{html.escape(w['full_label'])}: {val} zniknięć</title></rect>"
+                )
+                columns_svg.append(
+                    f'<text x="{x + col_w / 2:.1f}" y="{bar_y - 2}" text-anchor="middle" class="col-val">{val}</text>'
+                )
+            columns_svg.append(
+                f'<text x="{x + col_w / 2:.1f}" y="{12 + chart_h + 16}" text-anchor="middle" class="col-label">{html.escape(w["label"])}</text>'
+            )
+
+        charts.append(
+            f"""<article class="trend-card {color_classes[index % len(color_classes)]}">
+        <div class="trend-card-head">
+          <div>
+            <span class="trend-card-category">{html.escape(group)}</span>
+            <strong class="trend-card-value">{total_gone}</strong>
+            <span class="trend-card-sub">zniknięć (ostatnie 8 tyg.)</span>
+          </div>
+          <span class="trend-card-range">{weeks[0]["label"]} – {weeks[-1]["label"]} ({weeks[0]["range"].split("–")[0]} – {weeks[-1]["range"].split("–")[1]})</span>
+        </div>
+        <div class="trend-svg-wrap">
+          <svg viewBox="0 0 {width} {height}" role="img" aria-label="{html.escape(group)}: {total_gone} zniknięć w ostatnich 8 tygodniach">
+            {"".join(columns_svg)}
+          </svg>
+        </div>
+      </article>"""
+        )
+
+    return "".join(charts)
 
 
 def issue_trend_charts(issues: list[dict]) -> str:
@@ -384,6 +549,76 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
 
     all_offers = offers + normalized_sold
 
+    area_lookup = {
+        (o.get("category", ""), o.get("unit", "")): parse_area_value(o.get("area_m2"))
+        for o in all_offers
+        if o.get("area_m2")
+    }
+    price_profiles = build_price_history(history, area_lookup)
+
+    for o in all_offers:
+        key = (o.get("category", ""), o.get("unit", ""))
+        p = price_profiles.get(key)
+        if p:
+            o["has_price_drop"] = p.has_price_drop
+            o["has_price_rise"] = p.has_price_rise
+            o["total_delta_amount"] = p.total_delta_amount
+            o["total_delta_pct"] = p.total_delta_pct
+            o["initial_price"] = p.initial_price
+            o["last_known_price"] = p.last_known_price
+            o["price_per_m2"] = p.current_price_per_m2 or p.last_known_price_per_m2
+
+            if p.price_changes:
+                pts = [
+                    f"{pt.date}: {pt.price or 'cena ukryta'}"
+                    for pt in p.timeline
+                    if pt.event
+                    in (
+                        "new_listing",
+                        "price_change_adjustment",
+                        "price_change_masked",
+                        "price_change_unmasked",
+                    )
+                ]
+                o["history_tooltip"] = " | ".join(pts)
+            elif p.initial_price:
+                o["history_tooltip"] = f"Cena od początku: {p.initial_price}"
+            else:
+                o["history_tooltip"] = ""
+
+    drops_count = sum(1 for o in all_offers if o.get("has_price_drop"))
+    drops_pct_avg = (
+        round(
+            sum(abs(o.get("total_delta_pct") or 0) for o in all_offers if o.get("has_price_drop")) / drops_count,
+            1,
+        )
+        if drops_count
+        else 0.0
+    )
+    drops_sub = f"średnio -{drops_pct_avg}% taniej" if drops_count else "brak obniżek"
+
+    recent_units = set()
+    if events:
+        for e in events:
+            if e.get("unit"):
+                recent_units.add((e.get("category", ""), str(e.get("unit", ""))))
+    elif history:
+        latest_ts = history[-1].get("ts", "")
+        try:
+            latest_date = datetime.fromisoformat(latest_ts).date()
+            for e in reversed(history):
+                if datetime.fromisoformat(e.get("ts", "")).date() == latest_date:
+                    if e.get("unit"):
+                        recent_units.add((e.get("category", ""), str(e.get("unit", ""))))
+                else:
+                    break
+        except (ValueError, TypeError):
+            pass
+
+    for o in all_offers:
+        key = (o.get("category", ""), str(o.get("unit", "")))
+        o["is_recent"] = key in recent_units
+
     counts = Counter(o["status_kind"] for o in all_offers)
     total_known = len(all_offers)
     active_count = len(offers)
@@ -446,7 +681,8 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
         )
 
     categories_html = "".join(category_progress_cards)
-    trends_html = issue_trend_charts(issues)
+    daily_trends_html = issue_trend_charts(issues)
+    weekly_trends_html = weekly_trend_charts(history, weeks_count=8)
 
     if events:
         latest_changes_html = f'<div class="events-grid">{"".join(event_card_html(e) for e in events[:6])}</div>' + (
@@ -483,6 +719,14 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
                 "floor": o.get("floor") or "",
                 "staircase": o.get("staircase") or "",
                 "url": o.get("url", "#"),
+                "has_drop": bool(o.get("has_price_drop")),
+                "has_rise": bool(o.get("has_price_rise")),
+                "delta_amt": o.get("total_delta_amount"),
+                "delta_pct": o.get("total_delta_pct"),
+                "initial_price": o.get("initial_price") or "",
+                "last_known_price": o.get("last_known_price") or "",
+                "history_tooltip": o.get("history_tooltip") or "",
+                "recent": bool(o.get("is_recent")),
             }
         )
 
@@ -716,7 +960,7 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
     /* KPI Grid */
     .kpi-grid {{
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(5, 1fr);
       gap: 12px;
       margin-bottom: 24px;
     }}
@@ -738,6 +982,7 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
     .kpi-res .kpi-num {{ color: var(--amber); }}
     .kpi-sold .kpi-num {{ color: var(--red); }}
     .kpi-total .kpi-num {{ color: var(--primary); }}
+    .kpi-drops .kpi-num {{ color: var(--green); }}
 
     /* Navigation Tabs */
     .nav-tabs {{
@@ -954,6 +1199,34 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
     .trend-chart-storage .trend-dot {{ fill: var(--indigo); }}
     .trend-chart-storage {{ color: var(--indigo); }}
 
+    /* Weekly Column Chart Elements */
+    .trend-toggle-group {{
+      display: inline-flex;
+      gap: 4px;
+      background: var(--bg-subtle);
+      padding: 3px;
+      border-radius: var(--radius-full);
+      border: 1px solid var(--border);
+    }}
+    .trend-toggle-group .pill-btn {{
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      border: 0;
+      background: transparent;
+      color: var(--text-muted);
+    }}
+    .trend-toggle-group .pill-btn.active {{
+      background: var(--bg-surface);
+      color: var(--text);
+      box-shadow: var(--shadow-sm);
+    }}
+
+    .col-track {{ fill: var(--bg-subtle); }}
+    .col-fill {{ fill: currentColor; cursor: pointer; transition: filter 0.15s ease; }}
+    .col-fill:hover {{ filter: brightness(1.25); }}
+    .col-val {{ font-size: 10px; font-weight: 800; fill: currentColor; }}
+    .col-label {{ font-size: 9.5px; font-weight: 600; fill: var(--text-subtle); }}
+
     /* Catalog View & Filters */
     .catalog-bar {{
       display: flex;
@@ -982,12 +1255,16 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
       background: var(--bg-subtle);
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
-      padding: 0 14px 0 38px;
+      padding: 0 38px 0 38px;
       font-family: inherit;
       font-size: 0.95rem;
       color: var(--text);
       outline: none;
       transition: border-color 0.15s, background 0.15s;
+    }}
+    .search-input::-webkit-search-cancel-button {{
+      -webkit-appearance: none;
+      display: none;
     }}
     .search-input:focus {{
       border-color: var(--primary);
@@ -1001,6 +1278,83 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
       color: var(--text-muted);
       font-size: 0.95rem;
       pointer-events: none;
+    }}
+    .search-clear-btn {{
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: var(--border);
+      border: 0;
+      color: var(--text-muted);
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      font-size: 0.72rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      padding: 0;
+    }}
+    .search-clear-btn:hover {{
+      background: var(--text-muted);
+      color: var(--bg-surface);
+    }}
+
+    .active-filters-bar {{
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      background: var(--bg-subtle);
+      border: 1px dashed var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 0.8rem;
+      flex-wrap: wrap;
+    }}
+    .active-filters-left {{
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }}
+    .active-filters-label {{
+      font-weight: 700;
+      color: var(--text-muted);
+    }}
+    .active-filter-tags {{
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }}
+    .active-filter-chip {{
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-full);
+      padding: 2px 9px;
+      font-weight: 650;
+      color: var(--text);
+      font-size: 0.74rem;
+    }}
+    .reset-filters-btn {{
+      background: transparent;
+      border: 0;
+      color: var(--primary);
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: var(--radius-sm);
+      transition: background 0.15s;
+    }}
+    .reset-filters-btn:hover {{
+      background: var(--primary-subtle);
+      text-decoration: underline;
     }}
     .sort-select {{
       height: 42px;
@@ -1093,6 +1447,48 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
       font-size: 0.95rem;
       letter-spacing: -0.01em;
     }}
+    .badge-recent-change {{
+      font-size: 0.68rem;
+      font-weight: 750;
+      color: var(--indigo);
+      background: var(--indigo-subtle);
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      padding: 2px 7px;
+      border-radius: var(--radius-full);
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      white-space: nowrap;
+    }}
+    .card-header-actions {{
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }}
+    .card-copy-btn {{
+      width: 28px;
+      height: 28px;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: all 0.15s ease;
+      padding: 0;
+    }}
+    .card-copy-btn:hover {{
+      background: var(--border);
+      color: var(--text);
+    }}
+    .card-copy-btn.copied {{
+      background: var(--green-subtle);
+      color: var(--green);
+      border-color: var(--green-border);
+    }}
     .card-body {{
       display: flex;
       flex-direction: column;
@@ -1110,7 +1506,59 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
     .card-price-row {{
       display: flex;
       justify-content: space-between;
+      align-items: flex-end;
+      gap: 8px;
+    }}
+    .card-price-col {{
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }}
+    .card-price-topline {{
+      display: flex;
       align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }}
+    .card-old-price {{
+      font-size: 0.76rem;
+      color: var(--text-subtle);
+      text-decoration: line-through;
+      font-weight: 600;
+    }}
+    .price-drop-pill {{
+      font-size: 0.72rem;
+      font-weight: 750;
+      color: var(--green);
+      background: var(--green-subtle);
+      border: 1px solid var(--green-border);
+      border-radius: var(--radius-full);
+      padding: 1px 7px;
+      line-height: 1.3;
+      white-space: nowrap;
+    }}
+    .price-rise-pill {{
+      font-size: 0.72rem;
+      font-weight: 750;
+      color: var(--red);
+      background: var(--red-subtle);
+      border: 1px solid var(--red-border);
+      border-radius: var(--radius-full);
+      padding: 1px 7px;
+      line-height: 1.3;
+      white-space: nowrap;
+    }}
+    .card-last-known {{
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }}
+    .price-muted {{
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      font-weight: 600;
+      font-style: italic;
     }}
     .card-price {{
       font-size: 1.02rem;
@@ -1347,6 +1795,28 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
     .diff-old {{ text-decoration: line-through; opacity: 0.7; }}
     .diff-arrow {{ color: var(--text-subtle); margin: 0 3px; }}
     .diff-new {{ color: var(--text); font-weight: 700; }}
+    .event-delta-drop {{
+      color: var(--green);
+      font-weight: 750;
+      background: var(--green-subtle);
+      padding: 1px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--green-border);
+      font-size: 0.78rem;
+      margin-left: 4px;
+      display: inline-block;
+    }}
+    .event-delta-rise {{
+      color: var(--red);
+      font-weight: 750;
+      background: var(--red-subtle);
+      padding: 1px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--red-border);
+      font-size: 0.78rem;
+      margin-left: 4px;
+      display: inline-block;
+    }}
     .event-item-arrow {{ color: var(--text-subtle); font-size: 0.95rem; }}
 
     /* Empty states & generic helpers */
@@ -1506,6 +1976,11 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
         <strong class="kpi-num">{sold_count}</strong>
         <span class="kpi-sub">{sold_pct}% całej oferty</span>
       </div>
+      <div class="kpi-card kpi-drops clickable-card" role="button" tabindex="0" onclick="filterCatalogByPriceDrops()" title="Pokaż obniżki cen w katalogu">
+        <span class="kpi-title">Obniżki cen ↗</span>
+        <strong class="kpi-num">{drops_count}</strong>
+        <span class="kpi-sub">{drops_sub}</span>
+      </div>
       <div class="kpi-card kpi-total clickable-card" role="button" tabindex="0" onclick="filterCatalogByStatus('all')" title="Pokaż wszystkie lokale w katalogu">
         <span class="kpi-title">Łącznie znanych ↗</span>
         <strong class="kpi-num">{total_known}</strong>
@@ -1555,17 +2030,20 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
         </div>
       </section>
 
-      <!-- Trends: Disappearances in last 21 days -->
+      <!-- Trends: Disappearances in last 21 days & 8 weeks -->
       <section>
         <div class="section-head">
           <div>
-            <h2>Dynamika zniknięć z oferty (ostatnie 21 dni)</h2>
+            <h2>Dynamika sprzedaży &amp; zniknięć z oferty</h2>
             <p>Zniknięcie ze strony dewelopera zazwyczaj oznacza sfinalizowaną sprzedaż lub wycofanie oferty.</p>
           </div>
+          <div class="trend-toggle-group" role="group" aria-label="Wybierz okres trendów">
+            <button class="pill-btn active" data-trend-btn="weeks" onclick="switchTrendView('weeks')">Tygodnie (8 tyg.)</button>
+            <button class="pill-btn" data-trend-btn="days" onclick="switchTrendView('days')">Dni (21 dni)</button>
+          </div>
         </div>
-        <div class="trends-wrap">
-          {trends_html}
-        </div>
+        <div id="trend-view-weeks" class="trends-wrap">{weekly_trends_html}</div>
+        <div id="trend-view-days" class="trends-wrap" style="display:none;">{daily_trends_html}</div>
       </section>
     </div>
 
@@ -1576,9 +2054,12 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
           <div class="search-wrap">
             <span class="search-icon">🔍</span>
             <input type="search" id="catalog-search" class="search-input" placeholder="Szukaj lokalu (np. 34_1, KL10, parter, 40 m²)..." autocomplete="off" aria-label="Wyszukaj lokal">
+            <button id="search-clear-btn" class="search-clear-btn" type="button" aria-label="Wyczyść wyszukiwanie" style="display:none;" title="Wyczyść frazę">✕</button>
           </div>
           <select id="catalog-sort" class="sort-select" aria-label="Sortowanie ofert">
             <option value="default">Sortowanie domyślne</option>
+            <option value="drop-desc">🔥 Największa obniżka (zł)</option>
+            <option value="drop-pct-desc">🔥 Największa obniżka (%)</option>
             <option value="price-asc">Cena: od najniższej</option>
             <option value="price-desc">Cena: od najwyższej</option>
             <option value="area-desc">Metraż: od największego</option>
@@ -1586,6 +2067,12 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
             <option value="unit-asc">Numer lokalu (A-Z)</option>
           </select>
           <button id="view-mode-toggle" class="btn btn-secondary btn-sm" type="button" title="Przełącz widok siatka/lista">Widok: Kafelki</button>
+        </div>
+
+        <div class="filter-pills-row" id="price-filters">
+          <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted); margin-right:4px;">Cena:</span>
+          <button class="pill-btn active" data-price-filter="all">Wszystkie</button>
+          <button class="pill-btn" data-price-filter="drops">🔥 Obniżki cen ({drops_count})</button>
         </div>
 
         <div class="filter-pills-row" id="category-filters">
@@ -1602,6 +2089,14 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
           <button class="pill-btn" data-status-filter="available">Wolne</button>
           <button class="pill-btn" data-status-filter="reserved">Rezerwacje</button>
           <button class="pill-btn" data-status-filter="sold">Sprzedane</button>
+        </div>
+
+        <div id="active-filters-bar" class="active-filters-bar" style="display:none;">
+          <div class="active-filters-left">
+            <span class="active-filters-label">Aktywne filtry (<span id="active-filters-count">0</span>):</span>
+            <div id="active-filter-tags" class="active-filter-tags"></div>
+          </div>
+          <button id="reset-filters-btn" class="reset-filters-btn" type="button">Resetuj filtry ✕</button>
         </div>
       </div>
 
@@ -1675,6 +2170,12 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
       if (btn) btn.click();
     }}
 
+    function filterCatalogByPriceDrops() {{
+      switchTab('tab-catalog');
+      const btn = document.querySelector('#price-filters [data-price-filter="drops"]');
+      if (btn) btn.click();
+    }}
+
     function filterCatalogByGroup(groupName) {{
       switchTab('tab-catalog');
       const catBtn = Array.from(document.querySelectorAll('#category-filters .pill-btn')).find(b => {{
@@ -1684,6 +2185,61 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
         return false;
       }});
       if (catBtn) catBtn.click();
+    // --- Trend View Switcher ---
+    function switchTrendView(mode) {{
+      document.querySelectorAll('.trend-toggle-group .pill-btn').forEach(btn => {{
+        btn.classList.toggle('active', btn.dataset.trendBtn === mode);
+      }});
+      const weeksWrap = document.getElementById('trend-view-weeks');
+      const daysWrap = document.getElementById('trend-view-days');
+      if (weeksWrap && daysWrap) {{
+        weeksWrap.style.display = mode === 'weeks' ? '' : 'none';
+        daysWrap.style.display = mode === 'days' ? '' : 'none';
+      }}
+    }}
+
+    // --- Copy Offer Link ---
+    function copyOfferLink(event, url) {{
+      if (event) {{
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+      const btn = event ? event.currentTarget : null;
+      if (!url || url === '#' || url === 'None') return;
+
+      const finishCopy = () => {{
+        if (btn) {{
+          btn.textContent = '✓';
+          btn.classList.add('copied');
+          btn.title = 'Skopiowano link!';
+          setTimeout(() => {{
+            btn.textContent = '🔗';
+            btn.classList.remove('copied');
+            btn.title = 'Kopiuj link do schowka';
+          }}, 1800);
+        }}
+      }};
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {{
+        navigator.clipboard.writeText(url).then(finishCopy).catch(() => {{
+          fallbackCopy(url);
+          finishCopy();
+        }});
+      }} else {{
+        fallbackCopy(url);
+        finishCopy();
+      }}
+    }}
+
+    function fallbackCopy(text) {{
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      try {{ document.execCommand('copy'); }} catch(e) {{}}
+      document.body.removeChild(ta);
     }}
 
     // --- Timeline Grouping Switcher ---
@@ -1755,6 +2311,7 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
 
       let currentCat = 'all';
       let currentStatus = 'all';
+      let currentPriceFilter = 'all';
       let currentQuery = '';
       let currentSort = 'default';
       let isCompact = false;
@@ -1770,6 +2327,9 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
 
       function filterAndSortOffers() {{
         let list = rawOffers.filter(item => {{
+          if (currentPriceFilter === 'drops' && !item.has_drop) {{
+            return false;
+          }}
           if (currentCat !== 'all') {{
             const allowed = currentCat.split(',');
             if (!allowed.includes(item.cat)) return false;
@@ -1779,13 +2339,17 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
           }}
           if (currentQuery) {{
             const q = currentQuery.toLowerCase();
-            const text = `${{item.cat}} ${{item.unit}} ${{item.group}} ${{item.price}} ${{item.area}} ${{item.rooms}} ${{item.floor}}`.toLowerCase();
+            const text = `${{item.cat}} ${{item.unit}} ${{item.group}} ${{item.price}} ${{item.area}} ${{item.rooms}} ${{item.floor}} ${{item.has_drop ? 'obniżka obnizka rabat taniej' : ''}}`.toLowerCase();
             if (!text.includes(q)) return false;
           }}
           return true;
         }});
 
-        if (currentSort === 'price-asc') {{
+        if (currentSort === 'drop-desc') {{
+          list.sort((a, b) => (a.delta_amt || 0) - (b.delta_amt || 0));
+        }} else if (currentSort === 'drop-pct-desc') {{
+          list.sort((a, b) => (a.delta_pct || 0) - (b.delta_pct || 0));
+        }} else if (currentSort === 'price-asc') {{
           list.sort((a, b) => a.price_num - b.price_num);
         }} else if (currentSort === 'price-desc') {{
           list.sort((a, b) => b.price_num - a.price_num);
@@ -1824,6 +2388,39 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
           const statusLabels = {{ available: 'Wolne', reserved: 'Rezerwacja', sold: 'Sprzedane', unavailable: 'Niedostępne' }};
           const label = statusLabels[offer.kind] || offer.status;
 
+          let priceContent = '';
+          if (offer.has_drop) {{
+            const deltaStr = Math.abs(offer.delta_amt).toLocaleString('pl-PL');
+            const tooltipAttr = offer.history_tooltip ? ` title="${{offer.history_tooltip}}"` : '';
+            priceContent = `
+              <div class="card-price-col">
+                <div class="card-price-topline">
+                  <span class="card-old-price">${{offer.initial_price}}</span>
+                  <span class="price-drop-pill"${{tooltipAttr}}>↓ -${{deltaStr}} zł (${{offer.delta_pct}}%)</span>
+                </div>
+                <strong class="card-price">${{offer.price}}</strong>
+              </div>`;
+          }} else if (offer.has_rise) {{
+            const deltaStr = Math.abs(offer.delta_amt).toLocaleString('pl-PL');
+            const tooltipAttr = offer.history_tooltip ? ` title="${{offer.history_tooltip}}"` : '';
+            priceContent = `
+              <div class="card-price-col">
+                <div class="card-price-topline">
+                  <span class="card-old-price">${{offer.initial_price}}</span>
+                  <span class="price-rise-pill"${{tooltipAttr}}>↑ +${{deltaStr}} zł (+${{offer.delta_pct}}%)</span>
+                </div>
+                <strong class="card-price">${{offer.price}}</strong>
+              </div>`;
+          }} else if (!offer.price && offer.last_known_price) {{
+            priceContent = `
+              <div class="card-price-col">
+                <strong class="card-price price-muted">Cena ukryta</strong>
+                <span class="card-last-known">ostatnio: ${{offer.last_known_price}}</span>
+              </div>`;
+          }} else {{
+            priceContent = `<strong class="card-price">${{offer.price || 'Cena niedostępna'}}</strong>`;
+          }}
+
           return `<a class="flat-card status-border-${{offer.kind}}" href="${{offer.url}}" target="_blank" rel="noreferrer">
             <div class="card-header">
               <div class="card-title-wrap">
@@ -1835,7 +2432,7 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
             <div class="card-body">
               <span class="card-meta">${{metaText}}</span>
               <div class="card-price-row">
-                <strong class="card-price">${{offer.price || 'Cena niedostępna'}}</strong>
+                ${{priceContent}}
                 <span class="card-link-icon" aria-hidden="true">↗</span>
               </div>
             </div>
@@ -1862,6 +2459,15 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
       sortSelect.addEventListener('change', e => {{
         currentSort = e.target.value;
         renderCatalog(true);
+      }});
+
+      document.querySelectorAll('#price-filters .pill-btn').forEach(btn => {{
+        btn.addEventListener('click', () => {{
+          document.querySelectorAll('#price-filters .pill-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          currentPriceFilter = btn.dataset.priceFilter;
+          renderCatalog(true);
+        }});
       }});
 
       document.querySelectorAll('#category-filters .pill-btn').forEach(btn => {{
