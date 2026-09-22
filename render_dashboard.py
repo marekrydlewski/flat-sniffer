@@ -169,35 +169,23 @@ def offer_card_html(offer: dict) -> str:
     label = status_label(kind)
 
     price_content = ""
-    if offer.get("has_price_drop"):
+    has_drop = offer.get("has_price_drop")
+    has_rise = offer.get("has_price_rise")
+    if has_drop or has_rise:
         delta_amt = offer.get("total_delta_amount")
         delta_pct = offer.get("total_delta_pct")
         init_p = offer.get("initial_price")
         history_tooltip = offer.get("history_tooltip", "")
         if delta_amt is not None and delta_pct is not None:
+            pill_cls = "price-drop-pill" if has_drop else "price-rise-pill"
+            sign = "↓ -" if has_drop else "↑ +"
             delta_str = format_amount(abs(delta_amt))
-            pct_formatted = f"{delta_pct:.1f}%"
+            pct_formatted = f"{abs(delta_pct):.1f}%"
             tooltip_attr = f' title="{html.escape(history_tooltip)}"' if history_tooltip else ""
             price_content = f"""<div class="card-price-col">
           <div class="card-price-topline">
             <span class="card-old-price">{html.escape(init_p or "")}</span>
-            <span class="price-drop-pill"{tooltip_attr}>↓ -{delta_str} zł ({pct_formatted})</span>
-          </div>
-          <strong class="card-price">{html.escape(price)}</strong>
-        </div>"""
-    elif offer.get("has_price_rise"):
-        delta_amt = offer.get("total_delta_amount")
-        delta_pct = offer.get("total_delta_pct")
-        init_p = offer.get("initial_price")
-        history_tooltip = offer.get("history_tooltip", "")
-        if delta_amt is not None and delta_pct is not None:
-            delta_str = format_amount(delta_amt)
-            pct_formatted = f"+{delta_pct:.1f}%"
-            tooltip_attr = f' title="{html.escape(history_tooltip)}"' if history_tooltip else ""
-            price_content = f"""<div class="card-price-col">
-          <div class="card-price-topline">
-            <span class="card-old-price">{html.escape(init_p or "")}</span>
-            <span class="price-rise-pill"{tooltip_attr}>↑ +{delta_str} zł ({pct_formatted})</span>
+            <span class="{pill_cls}"{tooltip_attr}>{sign}{delta_str} zł ({pct_formatted})</span>
           </div>
           <strong class="card-price">{html.escape(price)}</strong>
         </div>"""
@@ -376,7 +364,8 @@ def weekly_trend_charts(history: list[dict], weeks_count: int = 8) -> str:
             {
                 "key": k,
                 "label": f"T{w_num}",
-                "range": f"{m:%d.%m}–{s:%d.%m}",
+                "start": f"{m:%d.%m}",
+                "end": f"{s:%d.%m}",
                 "full_label": f"Tydzień {w_num} ({m:%d.%m} – {s:%d.%m.%Y})",
             }
         )
@@ -439,7 +428,7 @@ def weekly_trend_charts(history: list[dict], weeks_count: int = 8) -> str:
             <strong class="trend-card-value">{total_gone}</strong>
             <span class="trend-card-sub">zniknięć (ostatnie 8 tyg.)</span>
           </div>
-          <span class="trend-card-range">{weeks[0]["label"]} – {weeks[-1]["label"]} ({weeks[0]["range"].split("–")[0]} – {weeks[-1]["range"].split("–")[1]})</span>
+          <span class="trend-card-range">{weeks[0]["label"]} – {weeks[-1]["label"]} ({weeks[0]["start"]} – {weeks[-1]["end"]})</span>
         </div>
         <div class="trend-svg-wrap">
           <svg viewBox="0 0 {width} {height}" role="img" aria-label="{html.escape(group)}: {total_gone} zniknięć w ostatnich 8 tygodniach">
@@ -2435,25 +2424,18 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
           const label = statusLabels[offer.kind] || offer.status;
 
           let priceContent = '';
-          if (offer.has_drop) {{
+          if (offer.has_drop || offer.has_rise) {{
+            const isDrop = offer.has_drop;
             const deltaStr = Math.abs(offer.delta_amt).toLocaleString('pl-PL');
+            const pillCls = isDrop ? 'price-drop-pill' : 'price-rise-pill';
+            const sign = isDrop ? '↓ -' : '↑ +';
+            const pctStr = Math.abs(offer.delta_pct);
             const tooltipAttr = offer.history_tooltip ? ` title="${{offer.history_tooltip}}"` : '';
             priceContent = `
               <div class="card-price-col">
                 <div class="card-price-topline">
                   <span class="card-old-price">${{offer.initial_price}}</span>
-                  <span class="price-drop-pill"${{tooltipAttr}}>↓ -${{deltaStr}} zł (${{offer.delta_pct}}%)</span>
-                </div>
-                <strong class="card-price">${{offer.price}}</strong>
-              </div>`;
-          }} else if (offer.has_rise) {{
-            const deltaStr = Math.abs(offer.delta_amt).toLocaleString('pl-PL');
-            const tooltipAttr = offer.history_tooltip ? ` title="${{offer.history_tooltip}}"` : '';
-            priceContent = `
-              <div class="card-price-col">
-                <div class="card-price-topline">
-                  <span class="card-old-price">${{offer.initial_price}}</span>
-                  <span class="price-rise-pill"${{tooltipAttr}}>↑ +${{deltaStr}} zł (+${{offer.delta_pct}}%)</span>
+                  <span class="${{pillCls}}"${{tooltipAttr}}>${{sign}}${{deltaStr}} zł (${{pctStr}}%)</span>
                 </div>
                 <strong class="card-price">${{offer.price}}</strong>
               </div>`;
