@@ -23,11 +23,11 @@
       "Parter"
     ],
     "id": "102",
-    "price": null,
+    "price": "522 324 zł",
     "price_per_m2": null,
     "rooms": "2",
-    "status": "Rezerwacja",
-    "status_color": "warning",
+    "status": "Wolne",
+    "status_color": "primary",
     "unit": "36_1",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A2-LM-36_01"
   },
@@ -578,22 +578,6 @@
     "status_color": "primary",
     "unit": "34_29",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A1-LM-34_29"
-  },
-  "157": {
-    "area_m2": "43,02",
-    "category": "Mieszkanie",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=673",
-    "extras": [
-      "Piętro 6"
-    ],
-    "id": "157",
-    "price": null,
-    "price_per_m2": null,
-    "rooms": "2",
-    "status": "Rezerwacja",
-    "status_color": "warning",
-    "unit": "34_31",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A1-LM-34_31"
   },
   "159": {
     "area_m2": "43,75",
@@ -2101,20 +2085,6 @@
     "unit": "125",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-125"
   },
-  "318": {
-    "area_m2": null,
-    "category": "Hala garażowa",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=385",
-    "extras": [],
-    "id": "318",
-    "price": null,
-    "price_per_m2": null,
-    "rooms": null,
-    "status": "Rezerwacja",
-    "status_color": "warning",
-    "unit": "126",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-126"
-  },
   "319": {
     "area_m2": null,
     "category": "Hala garażowa",
@@ -2823,11 +2793,11 @@
       "Parter"
     ],
     "id": "97",
-    "price": "572 163 zł",
+    "price": null,
     "price_per_m2": null,
     "rooms": "2",
-    "status": "Wolne",
-    "status_color": "primary",
+    "status": "Rezerwacja",
+    "status_color": "warning",
     "unit": "34_1",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A1-LM-34_01"
   },
