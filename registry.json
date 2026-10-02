@@ -653,11 +653,11 @@
       "Balkon"
     ],
     "id": "166",
-    "price": "1 016 520 zł",
+    "price": null,
     "price_per_m2": null,
     "rooms": "3",
-    "status": "Wolne",
-    "status_color": "primary",
+    "status": "Rezerwacja",
+    "status_color": "warning",
     "unit": "34_40",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A1-LM-34_40"
   },
@@ -894,6 +894,20 @@
     "status_color": "primary",
     "unit": "4",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-4"
+  },
+  "203": {
+    "area_m2": null,
+    "category": "Hala garażowa",
+    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=270",
+    "extras": [],
+    "id": "203",
+    "price": null,
+    "price_per_m2": null,
+    "rooms": null,
+    "status": "Rezerwacja",
+    "status_color": "warning",
+    "unit": "5",
+    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-5"
   },
   "204": {
     "area_m2": null,
@@ -2441,11 +2455,11 @@
     "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=238",
     "extras": [],
     "id": "369",
-    "price": "14 960 zł",
+    "price": null,
     "price_per_m2": null,
     "rooms": null,
-    "status": "Wolne",
-    "status_color": "primary",
+    "status": "Rezerwacja",
+    "status_color": "warning",
     "unit": "KL16",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-KL16"
   },
