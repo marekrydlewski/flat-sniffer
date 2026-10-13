@@ -1,20 +1,4 @@
 {
-  "101": {
-    "area_m2": "36,98",
-    "category": "Mieszkanie",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=647",
-    "extras": [
-      "Parter"
-    ],
-    "id": "101",
-    "price": null,
-    "price_per_m2": null,
-    "rooms": "2",
-    "status": "Rezerwacja",
-    "status_color": "warning",
-    "unit": "34_5",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A1-LM-34_05"
-  },
   "102": {
     "area_m2": "39,57",
     "category": "Mieszkanie",
@@ -23,7 +7,7 @@
       "Parter"
     ],
     "id": "102",
-    "price": "522 324 zł",
+    "price": "526 281 zł",
     "price_per_m2": null,
     "rooms": "2",
     "status": "Wolne",
@@ -120,7 +104,7 @@
       "Piętro 1"
     ],
     "id": "111",
-    "price": "681 765 zł",
+    "price": "684 408 zł",
     "price_per_m2": null,
     "rooms": "3",
     "status": "Wolne",
@@ -232,7 +216,7 @@
       "Piętro 2"
     ],
     "id": "120",
-    "price": "555 965 zł",
+    "price": "560 395 zł",
     "price_per_m2": null,
     "rooms": "2",
     "status": "Wolne",
@@ -345,7 +329,7 @@
       "Piętro 3"
     ],
     "id": "133",
-    "price": "551 250 zł",
+    "price": "555 625 zł",
     "price_per_m2": null,
     "rooms": "2",
     "status": "Wolne",
@@ -361,7 +345,7 @@
       "Piętro 3"
     ],
     "id": "134",
-    "price": "558 180 zł",
+    "price": "562 610 zł",
     "price_per_m2": null,
     "rooms": "2",
     "status": "Wolne",
@@ -458,7 +442,7 @@
       "Piętro 4"
     ],
     "id": "145",
-    "price": "553 438 zł",
+    "price": "560 000 zł",
     "price_per_m2": null,
     "rooms": "2",
     "status": "Wolne",
@@ -474,7 +458,7 @@
       "Piętro 4"
     ],
     "id": "146",
-    "price": "560 395 zł",
+    "price": "567 040 zł",
     "price_per_m2": null,
     "rooms": "2",
     "status": "Wolne",
@@ -555,7 +539,7 @@
       "Piętro 5"
     ],
     "id": "154",
-    "price": "555 625 zł",
+    "price": "564 375 zł",
     "price_per_m2": null,
     "rooms": "2",
     "status": "Wolne",
@@ -571,7 +555,7 @@
       "Piętro 5"
     ],
     "id": "155",
-    "price": "562 610 zł",
+    "price": "571 470 zł",
     "price_per_m2": null,
     "rooms": "2",
     "status": "Wolne",
@@ -603,7 +587,7 @@
       "Piętro 6"
     ],
     "id": "160",
-    "price": "564 825 zł",
+    "price": "573 685 zł",
     "price_per_m2": null,
     "rooms": "2",
     "status": "Wolne",
@@ -745,7 +729,7 @@
       "Piętro 2"
     ],
     "id": "182",
-    "price": "591 096 zł",
+    "price": "597 813 zł",
     "price_per_m2": null,
     "rooms": "2",
     "status": "Wolne",
@@ -809,7 +793,7 @@
       "Piętro 1"
     ],
     "id": "195",
-    "price": "520 043 zł",
+    "price": "526 020 zł",
     "price_per_m2": null,
     "rooms": "2",
     "status": "Wolne",
@@ -2347,20 +2331,6 @@
     "unit": "159",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-159"
   },
-  "352": {
-    "area_m2": null,
-    "category": "Hala garażowa",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=419",
-    "extras": [],
-    "id": "352",
-    "price": null,
-    "price_per_m2": null,
-    "rooms": null,
-    "status": "Rezerwacja",
-    "status_color": "warning",
-    "unit": "160",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-160"
-  },
   "353": {
     "area_m2": null,
     "category": "Hala garażowa",
@@ -2598,20 +2568,6 @@
     "status_color": "warning",
     "unit": "KL35",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-KL35"
-  },
-  "389": {
-    "area_m2": null,
-    "category": "Komórka",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=258",
-    "extras": [],
-    "id": "389",
-    "price": null,
-    "price_per_m2": null,
-    "rooms": null,
-    "status": "Rezerwacja",
-    "status_color": "warning",
-    "unit": "KL36",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-KL36"
   },
   "391": {
     "area_m2": null,
