@@ -875,34 +875,6 @@
     "unit": "6",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-6"
   },
-  "217": {
-    "area_m2": null,
-    "category": "Hala garażowa",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=284",
-    "extras": [],
-    "id": "217",
-    "price": "47 000 zł",
-    "price_per_m2": null,
-    "rooms": null,
-    "status": "Wolne",
-    "status_color": "primary",
-    "unit": "19",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-19"
-  },
-  "218": {
-    "area_m2": null,
-    "category": "Hala garażowa",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=285",
-    "extras": [],
-    "id": "218",
-    "price": "47 000 zł",
-    "price_per_m2": null,
-    "rooms": null,
-    "status": "Wolne",
-    "status_color": "primary",
-    "unit": "20",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-20"
-  },
   "222": {
     "area_m2": null,
     "category": "Hala garażowa",
@@ -916,20 +888,6 @@
     "status_color": "warning",
     "unit": "24",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-24"
-  },
-  "223": {
-    "area_m2": null,
-    "category": "Hala garażowa",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=290",
-    "extras": [],
-    "id": "223",
-    "price": "47 000 zł",
-    "price_per_m2": null,
-    "rooms": null,
-    "status": "Wolne",
-    "status_color": "primary",
-    "unit": "25",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-25"
   },
   "224": {
     "area_m2": null,
@@ -958,34 +916,6 @@
     "status_color": "warning",
     "unit": "27",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-27"
-  },
-  "226": {
-    "area_m2": null,
-    "category": "Hala garażowa",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=293",
-    "extras": [],
-    "id": "226",
-    "price": "47 000 zł",
-    "price_per_m2": null,
-    "rooms": null,
-    "status": "Wolne",
-    "status_color": "primary",
-    "unit": "28",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-28"
-  },
-  "227": {
-    "area_m2": null,
-    "category": "Hala garażowa",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=294",
-    "extras": [],
-    "id": "227",
-    "price": "47 000 zł",
-    "price_per_m2": null,
-    "rooms": null,
-    "status": "Wolne",
-    "status_color": "primary",
-    "unit": "29",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-29"
   },
   "232": {
     "area_m2": null,
