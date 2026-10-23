@@ -160,22 +160,6 @@
     "unit": "38_3",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-B-LM-38_03"
   },
-  "116": {
-    "area_m2": "74,25",
-    "category": "Mieszkanie",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=716",
-    "extras": [
-      "Piętro 2"
-    ],
-    "id": "116",
-    "price": null,
-    "price_per_m2": null,
-    "rooms": "3",
-    "status": "Rezerwacja",
-    "status_color": "warning",
-    "unit": "38_4",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-B-LM-38_04"
-  },
   "118": {
     "area_m2": "52,35",
     "category": "Mieszkanie",
@@ -499,22 +483,6 @@
     "unit": "36_18",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A2-LM-36_18"
   },
-  "152": {
-    "area_m2": "43,02",
-    "category": "Mieszkanie",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=668",
-    "extras": [
-      "Piętro 5"
-    ],
-    "id": "152",
-    "price": null,
-    "price_per_m2": null,
-    "rooms": "2",
-    "status": "Rezerwacja",
-    "status_color": "warning",
-    "unit": "34_26",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A1-LM-34_26"
-  },
   "153": {
     "area_m2": "52,35",
     "category": "Mieszkanie",
@@ -801,22 +769,6 @@
     "unit": "40_3",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-C-LM-40_03"
   },
-  "196": {
-    "area_m2": "59,23",
-    "category": "Mieszkanie",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=728",
-    "extras": [
-      "Piętro 1"
-    ],
-    "id": "196",
-    "price": null,
-    "price_per_m2": null,
-    "rooms": "3",
-    "status": "Rezerwacja",
-    "status_color": "warning",
-    "unit": "40_4",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-C-LM-40_04"
-  },
   "198": {
     "area_m2": "58,64",
     "category": "Mieszkanie",
@@ -832,20 +784,6 @@
     "status_color": "primary",
     "unit": "40_6",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-C-LM-40_06"
-  },
-  "202": {
-    "area_m2": null,
-    "category": "Hala garażowa",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=269",
-    "extras": [],
-    "id": "202",
-    "price": null,
-    "price_per_m2": null,
-    "rooms": null,
-    "status": "Rezerwacja",
-    "status_color": "warning",
-    "unit": "4",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-4"
   },
   "203": {
     "area_m2": null,
@@ -875,20 +813,6 @@
     "unit": "6",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-6"
   },
-  "222": {
-    "area_m2": null,
-    "category": "Hala garażowa",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=289",
-    "extras": [],
-    "id": "222",
-    "price": null,
-    "price_per_m2": null,
-    "rooms": null,
-    "status": "Rezerwacja",
-    "status_color": "warning",
-    "unit": "24",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-24"
-  },
   "223": {
     "area_m2": null,
     "category": "Hala garażowa",
@@ -917,48 +841,6 @@
     "unit": "26",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-26"
   },
-  "225": {
-    "area_m2": null,
-    "category": "Hala garażowa",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=292",
-    "extras": [],
-    "id": "225",
-    "price": null,
-    "price_per_m2": null,
-    "rooms": null,
-    "status": "Rezerwacja",
-    "status_color": "warning",
-    "unit": "27",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-27"
-  },
-  "232": {
-    "area_m2": null,
-    "category": "Hala garażowa",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=299",
-    "extras": [],
-    "id": "232",
-    "price": null,
-    "price_per_m2": null,
-    "rooms": null,
-    "status": "Rezerwacja",
-    "status_color": "warning",
-    "unit": "34",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-34"
-  },
-  "235": {
-    "area_m2": null,
-    "category": "Hala garażowa",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=302",
-    "extras": [],
-    "id": "235",
-    "price": null,
-    "price_per_m2": null,
-    "rooms": null,
-    "status": "Rezerwacja",
-    "status_color": "warning",
-    "unit": "37",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-37"
-  },
   "239": {
     "area_m2": null,
     "category": "Hala garażowa",
@@ -972,20 +854,6 @@
     "status_color": "primary",
     "unit": "41",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-41"
-  },
-  "240": {
-    "area_m2": null,
-    "category": "Hala garażowa",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=307",
-    "extras": [],
-    "id": "240",
-    "price": null,
-    "price_per_m2": null,
-    "rooms": null,
-    "status": "Rezerwacja",
-    "status_color": "warning",
-    "unit": "42",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-42"
   },
   "241": {
     "area_m2": null,
@@ -1266,20 +1134,6 @@
     "status_color": "primary",
     "unit": "63",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-63"
-  },
-  "262": {
-    "area_m2": null,
-    "category": "Hala garażowa",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=329",
-    "extras": [],
-    "id": "262",
-    "price": null,
-    "price_per_m2": null,
-    "rooms": null,
-    "status": "Rezerwacja",
-    "status_color": "warning",
-    "unit": "64",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-64"
   },
   "267": {
     "area_m2": null,
@@ -1686,20 +1540,6 @@
     "status_color": "primary",
     "unit": "105",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-105"
-  },
-  "298": {
-    "area_m2": null,
-    "category": "Hala garażowa",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=365",
-    "extras": [],
-    "id": "298",
-    "price": null,
-    "price_per_m2": null,
-    "rooms": null,
-    "status": "Rezerwacja",
-    "status_color": "warning",
-    "unit": "106",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-106"
   },
   "299": {
     "area_m2": null,
@@ -2401,34 +2241,6 @@
     "unit": "KL28",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-KL28"
   },
-  "382": {
-    "area_m2": null,
-    "category": "Komórka",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=251",
-    "extras": [],
-    "id": "382",
-    "price": null,
-    "price_per_m2": null,
-    "rooms": null,
-    "status": "Rezerwacja",
-    "status_color": "warning",
-    "unit": "KL29",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-KL29"
-  },
-  "383": {
-    "area_m2": null,
-    "category": "Komórka",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=252",
-    "extras": [],
-    "id": "383",
-    "price": null,
-    "price_per_m2": null,
-    "rooms": null,
-    "status": "Rezerwacja",
-    "status_color": "warning",
-    "unit": "KL30",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-KL30"
-  },
   "384": {
     "area_m2": null,
     "category": "Komórka",
@@ -2456,34 +2268,6 @@
     "status_color": "warning",
     "unit": "KL35",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-KL35"
-  },
-  "391": {
-    "area_m2": null,
-    "category": "Komórka",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=260",
-    "extras": [],
-    "id": "391",
-    "price": null,
-    "price_per_m2": null,
-    "rooms": null,
-    "status": "Rezerwacja",
-    "status_color": "warning",
-    "unit": "KL38",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-KL38"
-  },
-  "393": {
-    "area_m2": null,
-    "category": "Komórka",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=262",
-    "extras": [],
-    "id": "393",
-    "price": null,
-    "price_per_m2": null,
-    "rooms": null,
-    "status": "Rezerwacja",
-    "status_color": "warning",
-    "unit": "KL40",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-KL40"
   },
   "396": {
     "area_m2": null,
@@ -2584,21 +2368,5 @@
     "status_color": "warning",
     "unit": "34_1",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A1-LM-34_01"
-  },
-  "99": {
-    "area_m2": "37,41",
-    "category": "Mieszkanie",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=645",
-    "extras": [
-      "Parter"
-    ],
-    "id": "99",
-    "price": null,
-    "price_per_m2": null,
-    "rooms": "2",
-    "status": "Rezerwacja",
-    "status_color": "warning",
-    "unit": "34_3",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A1-LM-34_03"
   }
 }
