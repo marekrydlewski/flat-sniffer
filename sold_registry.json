@@ -57,6 +57,14 @@
   },
   {
     "category": "Hala garażowa",
+    "unit": "127",
+    "status": "Sprzedane",
+    "price": null,
+    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-127",
+    "detected_at": "2026-11-03T15:38:46.070282+00:00"
+  },
+  {
+    "category": "Hala garażowa",
     "unit": "128",
     "status": "Sprzedane",
     "price": null,
@@ -465,6 +473,14 @@
   },
   {
     "category": "Komórka",
+    "unit": "KL23",
+    "status": "Sprzedane",
+    "price": null,
+    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-KL23",
+    "detected_at": "2026-11-03T15:38:50.780921+00:00"
+  },
+  {
+    "category": "Komórka",
     "unit": "KL24",
     "status": "Sprzedane",
     "price": null,
@@ -478,6 +494,14 @@
     "price": null,
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-KL25",
     "detected_at": "2026-08-30T12:36:56.216569+00:00"
+  },
+  {
+    "category": "Komórka",
+    "unit": "KL28",
+    "status": "Sprzedane",
+    "price": null,
+    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-KL28",
+    "detected_at": "2026-11-03T15:38:49.835028+00:00"
   },
   {
     "category": "Komórka",
@@ -582,6 +606,14 @@
     "price": null,
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A1-LM-34_11",
     "detected_at": "2026-08-30T12:36:56.102177+00:00"
+  },
+  {
+    "category": "Mieszkanie",
+    "unit": "34_14",
+    "status": "Sprzedane",
+    "price": null,
+    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A1-LM-34_14",
+    "detected_at": "2026-11-03T15:38:47.894140+00:00"
   },
   {
     "category": "Mieszkanie",
