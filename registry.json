@@ -467,22 +467,6 @@
     "unit": "36_18",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A2-LM-36_18"
   },
-  "153": {
-    "area_m2": "52,35",
-    "category": "Mieszkanie",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=669",
-    "extras": [
-      "Piętro 5"
-    ],
-    "id": "153",
-    "price": null,
-    "price_per_m2": null,
-    "rooms": "3",
-    "status": "Rezerwacja",
-    "status_color": "warning",
-    "unit": "34_27",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A1-LM-34_27"
-  },
   "154": {
     "area_m2": "43,75",
     "category": "Mieszkanie",
@@ -1719,34 +1703,6 @@
     "unit": "121",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-121"
   },
-  "315": {
-    "area_m2": null,
-    "category": "Hala garażowa",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=382",
-    "extras": [],
-    "id": "315",
-    "price": null,
-    "price_per_m2": null,
-    "rooms": null,
-    "status": "Rezerwacja",
-    "status_color": "warning",
-    "unit": "123",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-123"
-  },
-  "316": {
-    "area_m2": null,
-    "category": "Hala garażowa",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=383",
-    "extras": [],
-    "id": "316",
-    "price": null,
-    "price_per_m2": null,
-    "rooms": null,
-    "status": "Rezerwacja",
-    "status_color": "warning",
-    "unit": "124",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-124"
-  },
   "317": {
     "area_m2": null,
     "category": "Hala garażowa",
@@ -2166,20 +2122,6 @@
     "status_color": "warning",
     "unit": "KL31",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-KL31"
-  },
-  "388": {
-    "area_m2": null,
-    "category": "Komórka",
-    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=257",
-    "extras": [],
-    "id": "388",
-    "price": null,
-    "price_per_m2": null,
-    "rooms": null,
-    "status": "Rezerwacja",
-    "status_color": "warning",
-    "unit": "KL35",
-    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-KL35"
   },
   "396": {
     "area_m2": null,
