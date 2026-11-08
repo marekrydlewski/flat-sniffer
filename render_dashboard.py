@@ -446,20 +446,35 @@ def weekly_trend_charts(history: list[dict], weeks_count: int = 8) -> str:
     return "".join(charts)
 
 
-def issue_trend_charts(issues: list[dict]) -> str:
+def daily_trend_charts(history: list[dict], issues: list[dict] | None = None) -> str:
     today = datetime.now(UTC).date()
     days = [today - timedelta(days=20 - offset) for offset in range(21)]
     counts = {day: Counter() for day in days}
 
-    for issue in issues:
+    # Count removed_from_listing events directly from history.log
+    history_matched = False
+    for event in history:
+        if event.get("event") != "removed_from_listing":
+            continue
         try:
-            day = datetime.fromisoformat(issue["createdAt"]).date()
-        except (KeyError, ValueError):
+            day = datetime.fromisoformat(event.get("ts", "")).date()
+        except (ValueError, TypeError):
             continue
-        if day not in counts:
-            continue
-        for category in GONE_RE.findall(issue.get("body", "")):
-            counts[day][group_name(category)] += 1
+        if day in counts:
+            counts[day][group_name(event.get("category", ""))] += 1
+            history_matched = True
+
+    # Fallback to issue markdown if history has no events in the 21-day window
+    if not history_matched and issues:
+        for issue in issues:
+            try:
+                day = datetime.fromisoformat(issue["createdAt"]).date()
+            except (KeyError, ValueError):
+                continue
+            if day not in counts:
+                continue
+            for category in GONE_RE.findall(issue.get("body", "")):
+                counts[day][group_name(category)] += 1
 
     charts = []
     width, height, padding = 280, 84, 10
@@ -664,6 +679,7 @@ def build_compact_offers_json(all_offers: list[dict]) -> list[dict]:
             "rooms": o.get("rooms") or "",
             "floor": o.get("floor") or "",
             "staircase": o.get("staircase") or "",
+            "extras": " · ".join(o.get("extras") or []),
             "url": o.get("url", "#"),
             "has_drop": bool(o.get("has_price_drop")),
             "has_rise": bool(o.get("has_price_rise")),
@@ -742,8 +758,8 @@ def build_dashboard_context(
         "latest_changes_html": latest_changes_html,
         "categories_html": build_category_progress_cards(offers, normalized_sold),
         "weekly_trends_html": weekly_trend_charts(history, weeks_count=8),
-        "daily_trends_html": issue_trend_charts(issues),
-        "catalog_cards_html": "".join(offer_card_html(o) for o in all_offers),
+        "daily_trends_html": daily_trend_charts(history, issues),
+        "catalog_cards_html": "".join(offer_card_html(o) for o in all_offers[:32]),
         "timeline_weeks_html": build_timeline_html(history, "week"),
         "timeline_months_html": build_timeline_html(history, "month"),
         "timeline_days_html": build_timeline_html(history, "day"),

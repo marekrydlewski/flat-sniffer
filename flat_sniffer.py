@@ -338,7 +338,7 @@ def diff_registries(old: dict, new: dict) -> list[dict]:
                     "unit": o_new["unit"],
                     "old_status": o_old["status"],
                     "new_status": o_new["status"],
-                    "price": o_new["price"],
+                    "price": o_new.get("price"),
                     "url": o_new["url"],
                 }
             )
@@ -369,6 +369,8 @@ def diff_registries(old: dict, new: dict) -> list[dict]:
                 price_event["change_type"] = "masked"
             elif old_num is None and new_num is not None:
                 price_event["change_type"] = "unmasked"
+            else:
+                price_event["change_type"] = "text_change"
 
             events.append(price_event)
 
