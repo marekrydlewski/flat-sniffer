@@ -191,7 +191,7 @@ def offer_card_html(offer: dict) -> str:
           {recent_badge}
         </div>
         <div class="card-header-actions">
-          <button class="card-copy-btn" type="button" title="Kopiuj link do schowka" onclick="copyOfferLink(event, '{html.escape(url, quote=True)}')">🔗</button>
+          <button class="card-copy-btn" type="button" title="Kopiuj link do schowka" onclick="copyOfferLink(event)">🔗</button>
           <span class="status-pill pill-{kind}">{html.escape(label)}</span>
         </div>
       </div>

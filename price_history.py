@@ -75,7 +75,7 @@ class PriceChange:
     new_price_num: int | None
     delta_amount: int | None
     delta_pct: float | None
-    change_type: str  # "adjustment", "masked", "unmasked", "adjustment_after_masked"
+    change_type: str  # "adjustment", "masked", "unmasked", "adjustment_after_masked", "text_change"
     status: str | None = None
 
 
@@ -263,6 +263,11 @@ def build_price_history(
                     p.last_known_price = new_raw
                     p.last_known_price_num = new_num
 
+                else:
+                    change_type = "text_change"
+                    p.current_price = new_raw
+                    p.current_price_num = None
+
                 ppm2 = round(new_num / p.area_m2) if new_num and p.area_m2 else None
                 if ppm2 is not None:
                     p.current_price_per_m2 = ppm2
@@ -390,9 +395,9 @@ def print_unit_history(profile: UnitPriceProfile) -> None:
         print("\nKorekty cen przez dewelopera:")
         for c in real_changes:
             sign = "+" if (c.delta_amount or 0) > 0 else ""
-            pct_sign = "+" if (c.delta_pct or 0) > 0 else ""
-            c_amt_str = format_amount(c.delta_amount)
-            print(f"  [{c.date}] {c.old_price} -> {c.new_price} ({sign}{c_amt_str} zł, {pct_sign}{c.delta_pct:.2f}%)")
+            pct_str = f", {sign}{c.delta_pct:.2f}%" if c.delta_pct is not None else ""
+            c_amt_str = f" ({sign}{format_amount(c.delta_amount)} zł{pct_str})" if c.delta_amount is not None else ""
+            print(f"  [{c.date}] {c.old_price} -> {c.new_price}{c_amt_str}")
 
     print("\nPełna oś zdarzeń:")
     for pt in profile.timeline:

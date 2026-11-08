@@ -210,6 +210,40 @@ class TestDiffRegistries(unittest.TestCase):
         self.assertIn("new_listing", events_by_type)
         self.assertEqual(events_by_type["new_listing"]["id"], "4")
 
+    def test_text_change_detection(self):
+        old = {"1": {"category": "Mieszkanie", "unit": "1", "status": "Wolne", "price": "Zapytaj o cenę", "url": "/1"}}
+        new = {"1": {"category": "Mieszkanie", "unit": "1", "status": "Wolne", "price": "Cena w biurze", "url": "/1"}}
+        events = diff_registries(old, new)
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["event"], "price_change")
+        self.assertEqual(events[0]["change_type"], "text_change")
+
+    def test_text_change_price_history_projection(self):
+        events = [
+            {
+                "ts": "2026-08-01T10:00:00+00:00",
+                "event": "new_listing",
+                "category": "Mieszkanie",
+                "unit": "1",
+                "price": "Zapytaj o cenę",
+            },
+            {
+                "ts": "2026-08-02T10:00:00+00:00",
+                "event": "price_change",
+                "category": "Mieszkanie",
+                "unit": "1",
+                "old_price": "Zapytaj o cenę",
+                "new_price": "Cena w biurze",
+                "change_type": "text_change",
+            },
+        ]
+        profiles = build_price_history(events)
+        p = profiles[("Mieszkanie", "1")]
+        self.assertEqual(len(p.price_changes), 1)
+        self.assertEqual(p.price_changes[0].change_type, "text_change")
+        self.assertIsNone(p.price_changes[0].delta_pct)
+        self.assertIsNone(p.price_changes[0].delta_amount)
+
 
 class TestTrendCharts(unittest.TestCase):
     def test_daily_trend_charts_with_history(self):

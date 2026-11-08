@@ -10,7 +10,13 @@
     }
 
     function removeDiacritics(str) {
-      return str ? String(str).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase() : '';
+      return str
+        ? String(str)
+            .replace(/[łŁ]/g, 'l')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+        : '';
     }
 
     // --- Global Filter Functions & Stubs ---
@@ -84,12 +90,13 @@
     });
 
     // --- Copy Offer Link ---
-    function copyOfferLink(event, url) {
+    function copyOfferLink(event, explicitUrl) {
       if (event) {
         event.preventDefault();
         event.stopPropagation();
       }
       const btn = event ? event.currentTarget : null;
+      const url = explicitUrl || (btn ? btn.closest('a')?.href : null);
       if (!url || url === '#' || url === 'None') return;
 
       const finishCopy = () => {
@@ -290,13 +297,33 @@
             return (a.delta_pct || 0) - (b.delta_pct || 0);
           });
         } else if (currentSort === 'price-asc') {
-          list.sort((a, b) => (a.price_num ?? Infinity) - (b.price_num ?? Infinity));
+          list.sort((a, b) => {
+            if (a.price_num == null && b.price_num == null) return 0;
+            if (a.price_num == null) return 1;
+            if (b.price_num == null) return -1;
+            return a.price_num - b.price_num;
+          });
         } else if (currentSort === 'price-desc') {
-          list.sort((a, b) => (b.price_num ?? -Infinity) - (a.price_num ?? -Infinity));
+          list.sort((a, b) => {
+            if (a.price_num == null && b.price_num == null) return 0;
+            if (a.price_num == null) return 1;
+            if (b.price_num == null) return -1;
+            return b.price_num - a.price_num;
+          });
         } else if (currentSort === 'area-desc') {
-          list.sort((a, b) => (b.area_num ?? -Infinity) - (a.area_num ?? -Infinity));
+          list.sort((a, b) => {
+            if (a.area_num == null && b.area_num == null) return 0;
+            if (a.area_num == null) return 1;
+            if (b.area_num == null) return -1;
+            return b.area_num - a.area_num;
+          });
         } else if (currentSort === 'area-asc') {
-          list.sort((a, b) => (a.area_num ?? Infinity) - (b.area_num ?? Infinity));
+          list.sort((a, b) => {
+            if (a.area_num == null && b.area_num == null) return 0;
+            if (a.area_num == null) return 1;
+            if (b.area_num == null) return -1;
+            return a.area_num - b.area_num;
+          });
         } else if (currentSort === 'unit-asc') {
           list.sort((a, b) => (a.cat + a.unit).localeCompare(b.cat + b.unit, undefined, { numeric: true }));
         }
@@ -358,7 +385,7 @@
           const recentBadge = offer.recent
             ? '<span class="badge-recent-change" title="Pozycja zmieniła się w ostatnim sprawdzeniu">✦ Ostatnia zmiana</span>'
             : '';
-          const copyBtn = `<button class="card-copy-btn" type="button" title="Kopiuj link do schowka" onclick="copyOfferLink(event, '${escapeHtml(offer.url)}')">🔗</button>`;
+          const copyBtn = `<button class="card-copy-btn" type="button" title="Kopiuj link do schowka" onclick="copyOfferLink(event)">🔗</button>`;
 
           return `<a class="flat-card status-border-${escapeHtml(offer.kind)}" href="${escapeHtml(offer.url)}" target="_blank" rel="noreferrer">
             <div class="card-header">
