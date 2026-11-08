@@ -23,6 +23,7 @@ import sys
 import time
 import unicodedata
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -68,6 +69,14 @@ AREA_RE = re.compile(r"Powierzchnia\s*</div>\s*<div[^>]*>\s*([\d,]+)\s*m<sup>2</
 ROOMS_RE = re.compile(r"Pokoje\s*</div>\s*<div[^>]*>\s*(\d+)\s*</div>", re.DOTALL)
 DODATKOWE_RE = re.compile(r"Dodatkowe\s*</div>\s*(?P<body>.*?)</div>\s*</div>\s*</div>", re.DOTALL)
 EXTRA_ITEM_RE = re.compile(r'<div class="h4 fs-20 m-0 text-dark">\s*([^<]+?)\s*</div>')
+OFFERS_PRICES_BASE_URL = "https://swietegomichala.pl/pl/web/offersPrices"
+OFFERS_PRICE_ROW_RE = re.compile(
+    r"<tr[^>]*>\s*"
+    r"<td>(?P<date>[^<]+)</td>\s*"
+    r"<td>(?P<price>[^<]+)</td>\s*"
+    r"<td>(?P<price_m2>[^<]*)</td>",
+    re.DOTALL,
+)
 
 # Optional listing fields (regex match or None).
 OPTIONAL_FIELD_RES = {
@@ -76,6 +85,29 @@ OPTIONAL_FIELD_RES = {
     "area_m2": AREA_RE,
     "rooms": ROOMS_RE,
 }
+
+
+def fetch_offer_price(
+    offer_id: str | int,
+    client: httpx.Client | None = None,
+) -> tuple[str | None, str | None]:
+    """Retrieve official price and price/m2 from the offer's price history lightbox page."""
+    url = f"{OFFERS_PRICES_BASE_URL}?id={offer_id}"
+    try:
+        if client is not None:
+            resp = client.get(url, timeout=20, follow_redirects=True)
+        else:
+            resp = httpx.get(url, headers={"User-Agent": USER_AGENT}, timeout=20, follow_redirects=True)
+        resp.raise_for_status()
+    except httpx.HTTPError:
+        return None, None
+
+    m = OFFERS_PRICE_ROW_RE.search(resp.text)
+    if not m:
+        return None, None
+    price = m.group("price").strip() or None
+    price_m2 = m.group("price_m2").strip() or None
+    return price, price_m2
 
 
 FETCH_ATTEMPTS = 3
@@ -176,6 +208,21 @@ def fetch_all() -> tuple[dict[str, dict], list[str]]:
             )
         for o in offers:
             registry[o["id"]] = o
+
+    missing = [o for o in registry.values() if not o.get("price") and o.get("id")]
+    if missing:
+        with (
+            httpx.Client(headers={"User-Agent": USER_AGENT}) as client,
+            ThreadPoolExecutor(max_workers=8) as executor,
+        ):
+            futures = {executor.submit(fetch_offer_price, o["id"], client): o for o in missing}
+            for future in as_completed(futures):
+                o = futures[future]
+                price, price_m2 = future.result()
+                if price:
+                    o["price"] = price
+                if price_m2 and not o.get("price_per_m2"):
+                    o["price_per_m2"] = price_m2
     return registry, problems
 
 

@@ -25,6 +25,7 @@ The core scraper lives in `flat_sniffer.py`.
   - `HEAD_RE`: Extracts id, href, and status color.
   - `STATUS_RE`: Extracts status, category, and unit identifier.
   - Optional fields: price, price per m², area, rooms, extra details (`DODATKOWE_RE`).
+- **Official Price History Lightbox**: For listings where direct price headers are omitted by the developer (e.g. `Rezerwacja` or `Sprzedane`), the exact official price and price/m² are fetched via the site's price history lightbox endpoint (`/pl/web/offersPrices?id={id}`).
 - **Unicode normalization**: All status, category, and unit strings are normalized via `unicodedata.normalize("NFC", ...)` to prevent cosmetic diacritic recomposition from triggering false diffs.
 
 ---

@@ -13,15 +13,16 @@ from pathlib import Path
 
 import httpx
 
-from flat_sniffer import USER_AGENT
+from flat_sniffer import USER_AGENT, fetch_offer_price
 
 STATUS_RE = re.compile(r'text-(?:success|danger|warning)[^"]*text-uppercase">\s*([^<]+?)\s*<', re.DOTALL)
 TITLE_RE = re.compile(r"<h2[^>]*>(?P<title>.*?)</h2>", re.DOTALL)
 PRICE_RE = re.compile(r'<h4 class="mb-0 text-black">([^<]+)</h4>')
+ID_RE = re.compile(r'offersPrices\?id=(?P<id>\d+)|data-id="(?P<data_id>\d+)"')
 TRAILING_NUMBER_RE = re.compile(r"^(?P<stem>.*?)(?P<number>\d+)$")
 
 
-def candidates(registry: dict) -> set[str]:
+def candidates(registry: dict, previous: dict | None = None) -> set[str]:
     """Generate gaps in known numbered offer series, never probing outside them."""
     by_stem: dict[tuple[str, str], list[str]] = {}
     for offer in registry.values():
@@ -40,12 +41,21 @@ def candidates(registry: dict) -> set[str]:
             if number not in known:
                 suffix = f"{number:0{width}d}" if padded else str(number)
                 result.add(f"{stem}{suffix}")
+    if previous:
+        result.update(previous.keys())
     return result
 
 
-def fetch_sold(url: str) -> dict | None:
+def fetch_sold(
+    url: str,
+    client: httpx.Client | None = None,
+    previous_price: str | None = None,
+) -> dict | None:
     try:
-        response = httpx.get(url, headers={"User-Agent": USER_AGENT}, timeout=20, follow_redirects=True)
+        if client is not None:
+            response = client.get(url, timeout=20, follow_redirects=True)
+        else:
+            response = httpx.get(url, headers={"User-Agent": USER_AGENT}, timeout=20, follow_redirects=True)
         response.raise_for_status()
     except httpx.HTTPError:
         return None
@@ -56,12 +66,21 @@ def fetch_sold(url: str) -> dict | None:
     title_parts = [re.sub(r"\s+", " ", part).strip() for part in re.split(r"\s{2,}", title.group("title").strip())]
     if len(title_parts) < 2:
         return None
-    price = PRICE_RE.search(response.text)
+    price_match = PRICE_RE.search(response.text)
+    price = price_match.group(1).strip() if price_match else None
+    if not price:
+        if previous_price:
+            price = previous_price
+        else:
+            id_match = ID_RE.search(response.text)
+            if id_match:
+                offer_id = id_match.group("id") or id_match.group("data_id")
+                price, _ = fetch_offer_price(offer_id, client)
     return {
         "category": title_parts[0],
         "unit": title_parts[-1],
         "status": "Sprzedane",
-        "price": price.group(1).strip() if price else None,
+        "price": price,
         "url": url,
     }
 
@@ -79,14 +98,26 @@ def main() -> None:
         else {}
     )
     found = []
-    with ThreadPoolExecutor(max_workers=8) as executor:
-        futures = [executor.submit(fetch_sold, url) for url in candidates(registry)]
+    with (
+        httpx.Client(headers={"User-Agent": USER_AGENT}) as client,
+        ThreadPoolExecutor(max_workers=8) as executor,
+    ):
+        futures = [
+            executor.submit(fetch_sold, url, client, previous.get(url, {}).get("price"))
+            for url in candidates(registry, previous)
+        ]
         for future in as_completed(futures):
             if offer := future.result():
-                offer["detected_at"] = previous.get(offer["url"], {}).get("detected_at", datetime.now(UTC).isoformat())
+                prev_info = previous.get(offer["url"], {})
+                offer["detected_at"] = prev_info.get("detected_at", datetime.now(UTC).isoformat())
+                if not offer["price"] and prev_info.get("price"):
+                    offer["price"] = prev_info["price"]
                 found.append(offer)
     found.sort(key=lambda o: (o["category"], o["unit"]))
-    Path(args.out).write_text(json.dumps(found, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    out_path = Path(args.out)
+    tmp_path = out_path.with_suffix(".json.tmp")
+    tmp_path.write_text(json.dumps(found, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    tmp_path.replace(out_path)
     print(f"Found {len(found)} sold offer(s).")
 
 
