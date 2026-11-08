@@ -127,7 +127,7 @@
           </div>
         </div>
         <div id="trend-view-weeks" class="trends-wrap">{{weekly_trends_html}}</div>
-        <div id="trend-view-days" class="trends-wrap" style="display:none;">{{daily_trends_html}}</div>
+        <div id="trend-view-days" class="trends-wrap hidden">{{daily_trends_html}}</div>
       </section>
     </div>
 
@@ -138,7 +138,7 @@
           <div class="search-wrap">
             <span class="search-icon">🔍</span>
             <input type="search" id="catalog-search" class="search-input" placeholder="Szukaj lokalu (np. 34_1, KL10, parter, 40 m²)..." autocomplete="off" aria-label="Wyszukaj lokal">
-            <button id="search-clear-btn" class="search-clear-btn" type="button" aria-label="Wyczyść wyszukiwanie" style="display:none;" title="Wyczyść frazę">✕</button>
+            <button id="search-clear-btn" class="search-clear-btn hidden" type="button" aria-label="Wyczyść wyszukiwanie" title="Wyczyść frazę">✕</button>
           </div>
           <select id="catalog-sort" class="sort-select" aria-label="Sortowanie ofert">
             <option value="default">Sortowanie domyślne</option>
@@ -175,7 +175,7 @@
           <button type="button" class="pill-btn" data-status-filter="sold" onclick="setStatusFilter('sold')">Sprzedane</button>
         </div>
 
-        <div id="active-filters-bar" class="active-filters-bar" style="display:none;">
+        <div id="active-filters-bar" class="active-filters-bar hidden">
           <div class="active-filters-left">
             <span class="active-filters-label">Aktywne filtry (<span id="active-filters-count">0</span>):</span>
             <div id="active-filter-tags" class="active-filter-tags"></div>

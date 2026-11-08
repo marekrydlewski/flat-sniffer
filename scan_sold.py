@@ -7,6 +7,7 @@
 import argparse
 import json
 import re
+import unicodedata
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
 from pathlib import Path
@@ -43,6 +44,7 @@ def candidates(registry: dict, previous: dict | None = None) -> set[str]:
                 result.add(f"{stem}{suffix}")
     if previous:
         result.update(previous.keys())
+    result.difference_update(offer["url"] for offer in registry.values())
     return result
 
 
@@ -77,8 +79,8 @@ def fetch_sold(
                 offer_id = id_match.group("id") or id_match.group("data_id")
                 price, _ = fetch_offer_price(offer_id, client)
     return {
-        "category": title_parts[0],
-        "unit": title_parts[-1],
+        "category": unicodedata.normalize("NFC", title_parts[0]),
+        "unit": unicodedata.normalize("NFC", title_parts[-1]),
         "status": "Sprzedane",
         "price": price,
         "url": url,

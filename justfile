@@ -10,4 +10,7 @@ fmt-check:
 typecheck:
     uv run --group dev ty check .
 
-check: lint fmt-check typecheck
+test:
+    uv run python -m unittest discover tests
+
+check: lint fmt-check typecheck test

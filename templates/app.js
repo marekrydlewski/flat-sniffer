@@ -1,3 +1,24 @@
+    // --- Utility Helpers ---
+    function escapeHtml(str) {
+      if (str == null) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function removeDiacritics(str) {
+      return str
+        ? String(str)
+            .replace(/[łŁ]/g, 'l')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+        : '';
+    }
+
     // --- Global Filter Functions & Stubs ---
     window.setCategoryFilter = function(cat) {
       if (window._catalogSetCategory) window._catalogSetCategory(cat);
@@ -53,18 +74,29 @@
       const weeksWrap = document.getElementById('trend-view-weeks');
       const daysWrap = document.getElementById('trend-view-days');
       if (weeksWrap && daysWrap) {
-        weeksWrap.style.display = mode === 'weeks' ? '' : 'none';
-        daysWrap.style.display = mode === 'days' ? '' : 'none';
+        weeksWrap.classList.toggle('hidden', mode !== 'weeks');
+        daysWrap.classList.toggle('hidden', mode !== 'days');
       }
     }
 
+    // --- Keyboard Accessibility for KPI Cards ---
+    document.querySelectorAll('.clickable-card').forEach(card => {
+      card.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          card.click();
+        }
+      });
+    });
+
     // --- Copy Offer Link ---
-    function copyOfferLink(event, url) {
+    function copyOfferLink(event, explicitUrl) {
       if (event) {
         event.preventDefault();
         event.stopPropagation();
       }
       const btn = event ? event.currentTarget : null;
+      const url = explicitUrl || (btn ? btn.closest('a')?.href : null);
       if (!url || url === '#' || url === 'None') return;
 
       const finishCopy = () => {
@@ -216,17 +248,17 @@
         }
 
         if (chips.length > 0) {
-          activeFiltersBar.style.display = 'flex';
+          activeFiltersBar.classList.remove('hidden');
           activeFiltersCountEl.textContent = chips.length;
           activeFilterTagsEl.innerHTML = chips.map(c =>
-            `<button type="button" class="active-filter-chip" onclick="${c.action}" title="Usuń ten filtr">${c.text} ✕</button>`
+            `<button type="button" class="active-filter-chip" onclick="${c.action}" title="Usuń ten filtr">${escapeHtml(c.text)} ✕</button>`
           ).join('');
         } else {
-          activeFiltersBar.style.display = 'none';
+          activeFiltersBar.classList.add('hidden');
         }
 
         if (searchClearBtn) {
-          searchClearBtn.style.display = (searchInput && searchInput.value) ? 'flex' : 'none';
+          searchClearBtn.classList.toggle('hidden', !(searchInput && searchInput.value));
         }
       }
 
@@ -243,25 +275,55 @@
             return false;
           }
           if (currentQuery) {
-            const q = currentQuery.toLowerCase();
-            const text = `${item.cat} ${item.unit} ${item.group} ${item.price} ${item.area} ${item.rooms} ${item.floor} ${item.has_drop ? 'obniżka obnizka rabat taniej' : ''}`.toLowerCase();
+            const q = removeDiacritics(currentQuery);
+            const text = removeDiacritics(
+              `${item.cat} ${item.unit} ${item.group} ${item.price} ${item.area} ${item.rooms} ${item.floor} ${item.staircase || ''} ${item.extras || ''} ${item.has_drop ? 'obnizka rabat taniej' : ''}`
+            );
             if (!text.includes(q)) return false;
           }
           return true;
         });
 
         if (currentSort === 'drop-desc') {
-          list.sort((a, b) => (a.delta_amt || 0) - (b.delta_amt || 0));
+          list.sort((a, b) => {
+            if (a.has_drop && !b.has_drop) return -1;
+            if (!a.has_drop && b.has_drop) return 1;
+            return (a.delta_amt || 0) - (b.delta_amt || 0);
+          });
         } else if (currentSort === 'drop-pct-desc') {
-          list.sort((a, b) => (a.delta_pct || 0) - (b.delta_pct || 0));
+          list.sort((a, b) => {
+            if (a.has_drop && !b.has_drop) return -1;
+            if (!a.has_drop && b.has_drop) return 1;
+            return (a.delta_pct || 0) - (b.delta_pct || 0);
+          });
         } else if (currentSort === 'price-asc') {
-          list.sort((a, b) => (a.price_num ?? Infinity) - (b.price_num ?? Infinity));
+          list.sort((a, b) => {
+            if (a.price_num == null && b.price_num == null) return 0;
+            if (a.price_num == null) return 1;
+            if (b.price_num == null) return -1;
+            return a.price_num - b.price_num;
+          });
         } else if (currentSort === 'price-desc') {
-          list.sort((a, b) => (b.price_num ?? 0) - (a.price_num ?? 0));
+          list.sort((a, b) => {
+            if (a.price_num == null && b.price_num == null) return 0;
+            if (a.price_num == null) return 1;
+            if (b.price_num == null) return -1;
+            return b.price_num - a.price_num;
+          });
         } else if (currentSort === 'area-desc') {
-          list.sort((a, b) => (b.area_num ?? 0) - (a.area_num ?? 0));
+          list.sort((a, b) => {
+            if (a.area_num == null && b.area_num == null) return 0;
+            if (a.area_num == null) return 1;
+            if (b.area_num == null) return -1;
+            return b.area_num - a.area_num;
+          });
         } else if (currentSort === 'area-asc') {
-          list.sort((a, b) => (a.area_num ?? Infinity) - (b.area_num ?? Infinity));
+          list.sort((a, b) => {
+            if (a.area_num == null && b.area_num == null) return 0;
+            if (a.area_num == null) return 1;
+            if (b.area_num == null) return -1;
+            return a.area_num - b.area_num;
+          });
         } else if (currentSort === 'unit-asc') {
           list.sort((a, b) => (a.cat + a.unit).localeCompare(b.cat + b.unit, undefined, { numeric: true }));
         }
@@ -280,19 +342,19 @@
 
         if (slice.length === 0) {
           grid.innerHTML = '<div class="empty-state empty-state-full">Brak ofert spełniających kryteria.</div>';
-          paginationWrap.style.display = 'none';
+          paginationWrap.classList.add('hidden');
           return;
         }
 
         grid.innerHTML = slice.map(offer => {
           const metaParts = [];
-          if (offer.area) metaParts.push(offer.area + ' m²');
-          if (offer.rooms) metaParts.push(offer.rooms + ' pok.');
-          if (offer.floor) metaParts.push(offer.floor);
-          if (offer.staircase) metaParts.push('kl. ' + offer.staircase);
-          const metaText = metaParts.join(' · ') || offer.group;
+          if (offer.area) metaParts.push(escapeHtml(offer.area) + ' m²');
+          if (offer.rooms) metaParts.push(escapeHtml(offer.rooms) + ' pok.');
+          if (offer.floor) metaParts.push(escapeHtml(offer.floor));
+          if (offer.staircase) metaParts.push('kl. ' + escapeHtml(offer.staircase));
+          const metaText = metaParts.join(' · ') || escapeHtml(offer.group);
           const statusLabels = { available: 'Wolne', reserved: 'Rezerwacja', sold: 'Sprzedane', unavailable: 'Niedostępne' };
-          const label = statusLabels[offer.kind] || offer.status;
+          const label = statusLabels[offer.kind] || escapeHtml(offer.status);
 
           let priceContent = '';
           if (offer.has_drop || offer.has_rise) {
@@ -300,41 +362,41 @@
             const deltaStr = Math.abs(offer.delta_amt).toLocaleString('pl-PL');
             const pillCls = isDrop ? 'price-drop-pill' : 'price-rise-pill';
             const sign = isDrop ? '↓ -' : '↑ +';
-            const pctStr = Math.abs(offer.delta_pct);
-            const tooltipAttr = offer.history_tooltip ? ` title="${offer.history_tooltip}"` : '';
+            const pctStr = offer.delta_pct != null ? Math.abs(offer.delta_pct).toFixed(1) : '';
+            const tooltipAttr = offer.history_tooltip ? ` title="${escapeHtml(offer.history_tooltip)}"` : '';
             priceContent = `
               <div class="card-price-col">
                 <div class="card-price-topline">
-                  <span class="card-old-price">${offer.initial_price}</span>
+                  <span class="card-old-price">${escapeHtml(offer.initial_price)}</span>
                   <span class="${pillCls}"${tooltipAttr}>${sign}${deltaStr} zł (${pctStr}%)</span>
                 </div>
-                <strong class="card-price">${offer.price}</strong>
+                <strong class="card-price">${escapeHtml(offer.price)}</strong>
               </div>`;
           } else if (!offer.price && offer.last_known_price) {
             priceContent = `
               <div class="card-price-col">
                 <strong class="card-price price-muted">Cena ukryta</strong>
-                <span class="card-last-known">ostatnio: ${offer.last_known_price}</span>
+                <span class="card-last-known">ostatnio: ${escapeHtml(offer.last_known_price)}</span>
               </div>`;
           } else {
-            priceContent = `<strong class="card-price">${offer.price || 'Cena niedostępna'}</strong>`;
+            priceContent = `<strong class="card-price">${escapeHtml(offer.price || 'Cena niedostępna')}</strong>`;
           }
 
           const recentBadge = offer.recent
             ? '<span class="badge-recent-change" title="Pozycja zmieniła się w ostatnim sprawdzeniu">✦ Ostatnia zmiana</span>'
             : '';
-          const copyBtn = `<button class="card-copy-btn" type="button" title="Kopiuj link do schowka" onclick="copyOfferLink(event, '${offer.url}')">🔗</button>`;
+          const copyBtn = `<button class="card-copy-btn" type="button" title="Kopiuj link do schowka" onclick="copyOfferLink(event)">🔗</button>`;
 
-          return `<a class="flat-card status-border-${offer.kind}" href="${offer.url}" target="_blank" rel="noreferrer">
+          return `<a class="flat-card status-border-${escapeHtml(offer.kind)}" href="${escapeHtml(offer.url)}" target="_blank" rel="noreferrer">
             <div class="card-header">
               <div class="card-title-wrap">
-                <span class="status-dot dot-${offer.kind}" aria-hidden="true"></span>
-                <span class="card-unit">${offer.cat} ${offer.unit}</span>
+                <span class="status-dot dot-${escapeHtml(offer.kind)}" aria-hidden="true"></span>
+                <span class="card-unit">${escapeHtml(offer.cat)} ${escapeHtml(offer.unit)}</span>
                 ${recentBadge}
               </div>
               <div class="card-header-actions">
                 ${copyBtn}
-                <span class="status-pill pill-${offer.kind}">${label}</span>
+                <span class="status-pill pill-${escapeHtml(offer.kind)}">${escapeHtml(label)}</span>
               </div>
             </div>
             <div class="card-body">
@@ -347,7 +409,7 @@
           </a>`;
         }).join('');
 
-        paginationWrap.style.display = displayedCount >= filtered.length ? 'none' : 'flex';
+        paginationWrap.classList.toggle('hidden', displayedCount >= filtered.length);
       }
 
       loadMoreBtn.addEventListener('click', () => {
@@ -358,7 +420,7 @@
       let debounceTimer;
       searchInput.addEventListener('input', e => {
         if (searchClearBtn) {
-          searchClearBtn.style.display = e.target.value ? 'flex' : 'none';
+          searchClearBtn.classList.toggle('hidden', !e.target.value);
         }
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
@@ -371,7 +433,7 @@
         searchClearBtn.addEventListener('click', () => {
           searchInput.value = '';
           currentQuery = '';
-          searchClearBtn.style.display = 'none';
+          searchClearBtn.classList.add('hidden');
           renderCatalog(true);
           searchInput.focus();
         });
@@ -427,7 +489,7 @@
         });
 
         if (searchInput) searchInput.value = '';
-        if (searchClearBtn) searchClearBtn.style.display = 'none';
+        if (searchClearBtn) searchClearBtn.classList.add('hidden');
         if (sortSelect) sortSelect.value = 'default';
 
         renderCatalog(true);
@@ -436,25 +498,9 @@
       window.clearSearchFilter = function() {
         if (searchInput) searchInput.value = '';
         currentQuery = '';
-        if (searchClearBtn) searchClearBtn.style.display = 'none';
+        if (searchClearBtn) searchClearBtn.classList.add('hidden');
         renderCatalog(true);
       };
-
-      // Event delegation on catalog filter container to catch all clicks
-      const catalogBar = document.querySelector('.catalog-bar');
-      if (catalogBar) {
-        catalogBar.addEventListener('click', e => {
-          const btn = e.target.closest('.pill-btn');
-          if (!btn) return;
-          if (btn.hasAttribute('data-cat-filter')) {
-            window.setCategoryFilter(btn.getAttribute('data-cat-filter'));
-          } else if (btn.hasAttribute('data-price-filter')) {
-            window.setPriceFilter(btn.getAttribute('data-price-filter'));
-          } else if (btn.hasAttribute('data-status-filter')) {
-            window.setStatusFilter(btn.getAttribute('data-status-filter'));
-          }
-        });
-      }
 
       if (resetFiltersBtn) {
         resetFiltersBtn.addEventListener('click', () => window.resetAllFilters());

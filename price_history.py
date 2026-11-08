@@ -48,12 +48,6 @@ def parse_area_num(area_str: str | None) -> float | None:
         return None
 
 
-def format_price_pln(val: int | None) -> str:
-    if val is None:
-        return "brak ceny"
-    return f"{val:,} zł".replace(",", " ")
-
-
 def format_amount(val: int | None) -> str:
     if val is None:
         return ""
@@ -81,7 +75,7 @@ class PriceChange:
     new_price_num: int | None
     delta_amount: int | None
     delta_pct: float | None
-    change_type: str  # "adjustment", "masked", "unmasked", "adjustment_after_masked"
+    change_type: str  # "adjustment", "masked", "unmasked", "adjustment_after_masked", "text_change"
     status: str | None = None
 
 
@@ -117,13 +111,7 @@ class UnitPriceProfile:
             pts = [
                 f"{pt.date}: {pt.price or 'cena ukryta'}"
                 for pt in self.timeline
-                if pt.event
-                in (
-                    "new_listing",
-                    "price_change_adjustment",
-                    "price_change_masked",
-                    "price_change_unmasked",
-                )
+                if pt.event.startswith("price_change_") or pt.event == "new_listing"
             ]
             return " | ".join(pts)
         if self.initial_price:
@@ -192,18 +180,25 @@ def build_price_history(
                 price_num = parse_price_num(price_raw)
                 status = e.get("status")
 
-                p.initial_price = price_raw
-                p.initial_price_num = price_num
+                if p.initial_price_num is None and price_num is not None:
+                    p.initial_price = price_raw
+                    p.initial_price_num = price_num
+                elif p.initial_price is None and price_raw is not None:
+                    p.initial_price = price_raw
+
                 p.current_price = price_raw
                 p.current_price_num = price_num
-                p.last_known_price = price_raw
-                p.last_known_price_num = price_num
+                if price_raw is not None:
+                    p.last_known_price = price_raw
+                    p.last_known_price_num = price_num
                 p.current_status = status
 
                 ppm2 = round(price_num / p.area_m2) if price_num and p.area_m2 else None
-                p.initial_price_per_m2 = ppm2
+                if p.initial_price_per_m2 is None and ppm2 is not None:
+                    p.initial_price_per_m2 = ppm2
                 p.current_price_per_m2 = ppm2
-                p.last_known_price_per_m2 = ppm2
+                if ppm2 is not None:
+                    p.last_known_price_per_m2 = ppm2
 
                 p.timeline.append(
                     PricePoint(
@@ -223,11 +218,15 @@ def build_price_history(
                 old_num = parse_price_num(old_raw)
                 new_num = parse_price_num(new_raw)
 
-                if p.initial_price_num is None and old_num is not None:
-                    p.initial_price = old_raw
-                    p.initial_price_num = old_num
-                    if p.area_m2:
-                        p.initial_price_per_m2 = round(old_num / p.area_m2)
+                if p.initial_price_num is None:
+                    if old_num is not None:
+                        p.initial_price = old_raw
+                        p.initial_price_num = old_num
+                    elif new_num is not None:
+                        p.initial_price = new_raw
+                        p.initial_price_num = new_num
+                    if p.initial_price_num and p.area_m2:
+                        p.initial_price_per_m2 = round(p.initial_price_num / p.area_m2)
 
                 change_type = "adjustment"
                 delta_amount: int | None = None
@@ -263,6 +262,11 @@ def build_price_history(
                     p.current_price_num = new_num
                     p.last_known_price = new_raw
                     p.last_known_price_num = new_num
+
+                else:
+                    change_type = "text_change"
+                    p.current_price = new_raw
+                    p.current_price_num = None
 
                 ppm2 = round(new_num / p.area_m2) if new_num and p.area_m2 else None
                 if ppm2 is not None:
@@ -302,10 +306,17 @@ def build_price_history(
                 new_status = e.get("new_status")
                 p.current_status = new_status
                 if e.get("price"):
-                    p.current_price = e["price"]
-                    p.current_price_num = parse_price_num(e["price"])
-                    p.last_known_price = e["price"]
-                    p.last_known_price_num = p.current_price_num
+                    price_str = e["price"]
+                    price_n = parse_price_num(price_str)
+                    p.current_price = price_str
+                    p.current_price_num = price_n
+                    p.last_known_price = price_str
+                    p.last_known_price_num = price_n
+                    if p.initial_price_num is None and price_n is not None:
+                        p.initial_price = price_str
+                        p.initial_price_num = price_n
+                        if p.area_m2:
+                            p.initial_price_per_m2 = round(price_n / p.area_m2)
                 p.timeline.append(
                     PricePoint(
                         date=dt,
@@ -384,9 +395,9 @@ def print_unit_history(profile: UnitPriceProfile) -> None:
         print("\nKorekty cen przez dewelopera:")
         for c in real_changes:
             sign = "+" if (c.delta_amount or 0) > 0 else ""
-            pct_sign = "+" if (c.delta_pct or 0) > 0 else ""
-            c_amt_str = format_amount(c.delta_amount)
-            print(f"  [{c.date}] {c.old_price} -> {c.new_price} ({sign}{c_amt_str} zł, {pct_sign}{c.delta_pct:.2f}%)")
+            pct_str = f", {sign}{c.delta_pct:.2f}%" if c.delta_pct is not None else ""
+            c_amt_str = f" ({sign}{format_amount(c.delta_amount)} zł{pct_str})" if c.delta_amount is not None else ""
+            print(f"  [{c.date}] {c.old_price} -> {c.new_price}{c_amt_str}")
 
     print("\nPełna oś zdarzeń:")
     for pt in profile.timeline:
