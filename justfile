@@ -18,6 +18,9 @@ check: lint fmt-check typecheck test
 dashboard:
     uv run render_dashboard.py
 
+serve:
+    python3 -m http.server 8000
+
 wt-new name:
     git fetch origin main
     git worktree add "$$(git rev-parse --git-common-dir)/../.worktrees/{{name}}" -b {{name}} origin/main

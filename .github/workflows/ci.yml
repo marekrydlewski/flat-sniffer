@@ -35,5 +35,8 @@ jobs:
       - name: Unit tests
         run: uv run python -m unittest discover tests
 
+      - name: Verify JavaScript syntax
+        run: node --check templates/app.js
+
       - name: Test dashboard render
         run: uv run render_dashboard.py --out /tmp/smoke-dashboard.html

@@ -598,5 +598,23 @@ class TestDashboardP2Improvements(unittest.TestCase):
         self.assertEqual(compact[0]["staircase"], "36")
 
 
+class TestTemplatesIntegrity(unittest.TestCase):
+    def test_app_js_syntax_via_node(self):
+        import shutil
+        import subprocess
+        from pathlib import Path
+
+        node_path = shutil.which("node")
+        if node_path:
+            templates_dir = Path(__file__).resolve().parent.parent / "templates"
+            res = subprocess.run(
+                [node_path, "--check", str(templates_dir / "app.js")],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(res.returncode, 0, f"app.js syntax error: {res.stderr}")
+
+
 if __name__ == "__main__":
     unittest.main()
