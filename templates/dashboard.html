@@ -198,6 +198,21 @@
           <button id="search-clear-btn" class="search-clear-btn hidden" type="button" onclick="clearSearch()" title="Wyczyść szukanie">✕</button>
         </div>
 
+        <div class="range-filters-wrap" id="range-filters">
+          <div class="range-field" title="Maksymalna cena lokalu">
+            <label for="filter-max-price" class="range-label">Cena max:</label>
+            <input type="number" id="filter-max-price" class="range-input" placeholder="np. 600000" step="10000" min="0" oninput="handleMaxPriceInput(this.value)">
+            <span class="range-unit">zł</span>
+          </div>
+          <div class="range-field" title="Zakres powierzchni lokalu w m²">
+            <label for="filter-min-area" class="range-label">Metraż:</label>
+            <input type="number" id="filter-min-area" class="range-input range-input-sm" placeholder="od" step="1" min="0" aria-label="Metraż od w m²" oninput="handleMinAreaInput(this.value)">
+            <span class="range-sep">–</span>
+            <input type="number" id="filter-max-area" class="range-input range-input-sm" placeholder="do" step="1" min="0" aria-label="Metraż do w m²" oninput="handleMaxAreaInput(this.value)">
+            <span class="range-unit">m²</span>
+          </div>
+        </div>
+
         <div class="quick-filter-pills" id="quick-filters">
           <!-- Populated dynamically by app.js based on selectedCategory -->
         </div>

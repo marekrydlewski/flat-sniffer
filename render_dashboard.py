@@ -284,6 +284,10 @@ def normalize_offers(
         s["status"] = "Sprzedane"
         s["status_kind"] = "sold"
         s["group"] = group_name(s.get("category", ""))
+        if s.get("category") == "Mieszkanie" and not s.get("staircase"):
+            unit = str(s.get("unit") or "")
+            if "_" in unit:
+                s["staircase"] = unit.split("_")[0]
         normalized_sold.append(s)
 
     for o in offers:
@@ -294,6 +298,10 @@ def normalize_offers(
             floor_extra = [x for x in extras if "piętro" in x.casefold() or "parter" in x.casefold()]
             if floor_extra and not o.get("floor"):
                 o["floor"] = floor_extra[0]
+        if o.get("category") == "Mieszkanie" and not o.get("staircase"):
+            unit = str(o.get("unit") or "")
+            if "_" in unit:
+                o["staircase"] = unit.split("_")[0]
 
     all_offers = offers + normalized_sold
 

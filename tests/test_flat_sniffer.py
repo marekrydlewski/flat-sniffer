@@ -542,5 +542,61 @@ class TestDashboardP1Improvements(unittest.TestCase):
         self.assertIn("36_1", output)
 
 
+class TestDashboardP2Improvements(unittest.TestCase):
+    def test_normalize_offers_extracts_staircase_for_flats(self):
+        from render_dashboard import normalize_offers
+
+        registry = {
+            "1": {
+                "category": "Mieszkanie",
+                "unit": "34_12",
+                "status": "Wolne",
+                "url": "/1",
+            },
+            "2": {
+                "category": "Mieszkanie",
+                "unit": "38_5",
+                "status": "Rezerwacja",
+                "staircase": "38",  # already present
+                "url": "/2",
+            },
+            "3": {
+                "category": "Komórka",
+                "unit": "KL12",
+                "status": "Wolne",
+                "url": "/3",
+            },
+        }
+        sold = [
+            {
+                "category": "Mieszkanie",
+                "unit": "40_3",
+                "status": "Sprzedane",
+                "url": "/4",
+            }
+        ]
+        _offers, _normalized_sold, all_offers = normalize_offers(registry, sold, [])
+        by_unit = {o["unit"]: o for o in all_offers}
+        self.assertEqual(by_unit["34_12"]["staircase"], "34")
+        self.assertEqual(by_unit["38_5"]["staircase"], "38")
+        self.assertEqual(by_unit["40_3"]["staircase"], "40")
+        self.assertIsNone(by_unit["KL12"].get("staircase"))
+
+    def test_build_compact_offers_json_preserves_staircase(self):
+        from render_dashboard import build_compact_offers_json
+
+        offers = [
+            {
+                "id": "1",
+                "category": "Mieszkanie",
+                "unit": "36_2",
+                "staircase": "36",
+                "status": "Wolne",
+            }
+        ]
+        compact = build_compact_offers_json(offers)
+        self.assertEqual(compact[0]["staircase"], "36")
+
+
 if __name__ == "__main__":
     unittest.main()
