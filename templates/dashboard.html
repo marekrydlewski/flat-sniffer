@@ -50,25 +50,25 @@
 
       <!-- Segmented Progress Bar -->
       <div class="sales-progress-card">
-        <div class="sales-progress-bar" role="progressbar" aria-label="Postęp sprzedaży mieszkań">
+        <div class="sales-progress-bar" role="progressbar" aria-valuenow="{{flats_sold_pct}}" aria-valuemin="0" aria-valuemax="100" aria-label="Postęp sprzedaży mieszkań: {{flats_sold_pct}}% sprzedane">
           <span class="seg seg-avail" style="width: {{flats_avail_pct}}%" title="Wolne: {{flats_avail}} ({{flats_avail_pct}}%)"></span>
           <span class="seg seg-res" style="width: {{flats_res_pct}}%" title="Rezerwacje: {{flats_res}} ({{flats_res_pct}}%)"></span>
           <span class="seg seg-sold" style="width: {{flats_sold_pct}}%" title="Sprzedane: {{flats_sold}} ({{flats_sold_pct}}%)"></span>
         </div>
         <div class="sales-legend">
-          <div class="legend-item clickable" onclick="setCatalogFilter('status', 'available')" title="Pokaż wolne w tabeli">
+          <div class="legend-item clickable" role="button" tabindex="0" onclick="setCatalogFilter('status', 'available')" title="Pokaż wolne w tabeli">
             <span class="dot dot-avail"></span>
             <span class="legend-label">Wolne mieszkania:</span>
             <strong class="legend-val">{{flats_avail}}</strong>
             <span class="legend-pct">({{flats_avail_pct}}%)</span>
           </div>
-          <div class="legend-item clickable" onclick="setCatalogFilter('status', 'reserved')" title="Pokaż rezerwacje w tabeli">
+          <div class="legend-item clickable" role="button" tabindex="0" onclick="setCatalogFilter('status', 'reserved')" title="Pokaż rezerwacje w tabeli">
             <span class="dot dot-res"></span>
             <span class="legend-label">Rezerwacje:</span>
             <strong class="legend-val">{{flats_res}}</strong>
             <span class="legend-pct">({{flats_res_pct}}%)</span>
           </div>
-          <div class="legend-item clickable" onclick="setCatalogFilter('status', 'sold')" title="Pokaż sprzedane w tabeli">
+          <div class="legend-item clickable" role="button" tabindex="0" onclick="setCatalogFilter('status', 'sold')" title="Pokaż sprzedane w tabeli">
             <span class="dot dot-sold"></span>
             <span class="legend-label">Sprzedane / zniknięte:</span>
             <strong class="legend-val">{{flats_sold}}</strong>
@@ -89,7 +89,7 @@
           <strong class="metric-val">{{flats_avg_sqm}} zł/m²</strong>
           <span class="metric-sub">od {{flats_min_sqm}} do {{flats_max_sqm}} zł/m²</span>
         </div>
-        <div class="metric-card clickable" onclick="setCatalogFilter('special', 'drops')" title="Pokaż obniżki w tabeli">
+        <div class="metric-card clickable" role="button" tabindex="0" onclick="setCatalogFilter('special', 'drops')" title="Pokaż obniżki w tabeli">
           <span class="metric-label">Mieszkania z obniżką ↗</span>
           <strong class="metric-val text-green">{{flats_drops_count}}</strong>
           <span class="metric-sub">{{flats_drops_sub}}</span>
@@ -114,16 +114,16 @@
         </div>
         <!-- Category Selector -->
         <div class="category-tabs" role="tablist" aria-label="Wybierz kategorię">
-          <button class="cat-tab-btn active" data-category="Mieszkanie" onclick="selectCategory('Mieszkanie')">
+          <button class="cat-tab-btn active" role="tab" aria-selected="true" data-category="Mieszkanie" onclick="selectCategory('Mieszkanie')">
             🏢 Mieszkania ({{flats_active_count}})
           </button>
-          <button class="cat-tab-btn" data-category="Hala garażowa" onclick="selectCategory('Hala garażowa')">
+          <button class="cat-tab-btn" role="tab" aria-selected="false" data-category="Hala garażowa" onclick="selectCategory('Hala garażowa')">
             🚗 Hala garażowa ({{garage_active_count}})
           </button>
-          <button class="cat-tab-btn" data-category="Komórka" onclick="selectCategory('Komórka')">
+          <button class="cat-tab-btn" role="tab" aria-selected="false" data-category="Komórka" onclick="selectCategory('Komórka')">
             📦 Komórki ({{storage_active_count}})
           </button>
-          <button class="cat-tab-btn" data-category="Miejsce postojowe" onclick="selectCategory('Miejsce postojowe')">
+          <button class="cat-tab-btn" role="tab" aria-selected="false" data-category="Miejsce postojowe" onclick="selectCategory('Miejsce postojowe')">
             🅿️ Parking ({{parking_active_count}})
           </button>
         </div>

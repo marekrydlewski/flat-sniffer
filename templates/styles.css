@@ -1373,9 +1373,43 @@ button {
   gap: 0.2rem;
 }
 
-/* Utilities */
+/* Utilities & Empty States */
 .hidden {
   display: none !important;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.table-empty-state {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: var(--text-muted);
+}
+
+.show-sold-wrap {
+  margin-left: 0.5rem;
+  align-self: center;
+}
+
+.week-card.hidden-by-scope {
+  display: none !important;
+}
+
+/* Accessibility focus styles */
+.clickable:focus-visible,
+.hist-col:focus-visible,
+.data-table th.sortable:focus-visible,
+.btn:focus-visible,
+.btn-icon:focus-visible,
+.q-pill:focus-visible,
+.cat-tab-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 /* Responsive Media Queries */

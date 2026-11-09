@@ -7,7 +7,7 @@
   let selectedCategory = 'Mieszkanie';
   let histogramMode = 'total'; // 'total' | 'sqm'
   let includeSoldInHist = false;
-  let selectedHistogramBin = null; // { min, max, label } or null
+  let selectedHistogramBin = null; // { min, max, label, isLast, isExact } or null
 
   // Table filters & sorting
   let catalogSearch = '';
@@ -32,6 +32,24 @@
       .replace(/'/g, '&#39;');
   }
 
+  function removeDiacritics(str) {
+    return str
+      ? String(str)
+          .replace(/[łŁ]/g, 'l')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase()
+      : '';
+  }
+
+  function parseFloorNum(val) {
+    if (!val) return -1;
+    const s = String(val).toLowerCase();
+    if (s.includes('parter')) return 0;
+    const m = s.match(/\d+/);
+    return m ? parseInt(m[0], 10) : -1;
+  }
+
   function formatPrice(num) {
     if (num == null || isNaN(num)) return '—';
     return Math.round(num).toLocaleString('pl-PL') + ' zł';
@@ -49,7 +67,19 @@
     }
 
     initTheme();
+    initKeyboardAccessibility();
     renderAll();
+  }
+
+  function initKeyboardAccessibility() {
+    document.querySelectorAll('.clickable[tabindex="0"]').forEach(el => {
+      el.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          el.click();
+        }
+      });
+    });
   }
 
   function renderAll() {
@@ -110,6 +140,7 @@
     document.querySelectorAll('.cat-tab-btn').forEach(btn => {
       const isMatch = btn.getAttribute('data-category') === selectedCategory;
       btn.classList.toggle('active', isMatch);
+      btn.setAttribute('aria-selected', isMatch ? 'true' : 'false');
     });
 
     const titleEl = document.getElementById('catalog-title');
@@ -144,6 +175,7 @@
     const chk = document.getElementById('chk-include-sold');
     includeSoldInHist = chk ? chk.checked : false;
     renderHistogram();
+    renderTable();
   };
 
   window.clearHistogramSelection = function() {
@@ -170,7 +202,7 @@
     }
 
     if (items.length === 0) {
-      container.innerHTML = '<div style="text-align:center; padding: 2rem; color: var(--text-muted);">Brak danych cenowych dla wybranej konfiguracji.</div>';
+      container.innerHTML = '<div class="empty-state">Brak danych cenowych dla wybranej konfiguracji.</div>';
       updateDrilldownBar();
       return;
     }
@@ -180,7 +212,6 @@
     if (selectedCategory === 'Mieszkanie') {
       if (histogramMode === 'total') {
         const step = 50000;
-        // Find min and max price
         const prices = items.map(o => o.price_num).filter(p => p && p > 0);
         if (prices.length > 0) {
           const minP = Math.floor(Math.min(...prices) / step) * step;
@@ -188,10 +219,14 @@
           for (let b = minP; b < maxP; b += step) {
             const bMin = b;
             const bMax = b + step;
-            const bItems = items.filter(o => o.price_num >= bMin && (bMax >= maxP ? o.price_num <= bMax : o.price_num < bMax));
+            const isLast = bMax >= maxP;
+            const bItems = items.filter(o => {
+              if (o.price_num == null) return false;
+              return o.price_num >= bMin && (isLast ? o.price_num <= bMax : o.price_num < bMax);
+            });
             if (bItems.length > 0) {
               const label = `${Math.round(bMin / 1000)}k–${Math.round(bMax / 1000)}k zł`;
-              bins.push({ min: bMin, max: bMax, label: label, items: bItems });
+              bins.push({ min: bMin, max: bMax, isLast: isLast, label: label, items: bItems });
             }
           }
         }
@@ -205,13 +240,14 @@
           for (let b = minS; b < maxS; b += step) {
             const bMin = b;
             const bMax = b + step;
+            const isLast = bMax >= maxS;
             const bItems = items.filter(o => {
               const sqm = (o.price_num && o.area_num) ? (o.price_num / o.area_num) : null;
-              return sqm != null && sqm >= bMin && (bMax >= maxS ? sqm <= bMax : sqm < bMax);
+              return sqm != null && sqm >= bMin && (isLast ? sqm <= bMax : sqm < bMax);
             });
             if (bItems.length > 0) {
               const label = `${bMin.toLocaleString()}–${bMax.toLocaleString()} zł/m²`;
-              bins.push({ min: bMin, max: bMax, label: label, items: bItems });
+              bins.push({ min: bMin, max: bMax, isLast: isLast, label: label, items: bItems });
             }
           }
         }
@@ -239,16 +275,14 @@
     }
 
     if (bins.length === 0) {
-      container.innerHTML = '<div style="text-align:center; padding: 2rem; color: var(--text-muted);">Brak danych cenowych.</div>';
+      container.innerHTML = '<div class="empty-state">Brak danych cenowych.</div>';
       updateDrilldownBar();
       return;
     }
 
-    // Find max count across bins for height scaling
     const maxCount = Math.max(...bins.map(b => b.items.length), 1);
 
-    // Build chart HTML
-    let chartHtml = '<div class="histogram-chart">';
+    let chartHtml = '<div class="histogram-chart" role="region" aria-label="Histogram rozkładu cen">';
     let labelsHtml = '<div class="hist-labels-row">';
 
     bins.forEach((bin, idx) => {
@@ -269,7 +303,7 @@
       const tooltip = `${bin.label}: ${count} lokali (${countAvail} wolnych, ${countRes} rezerwacji, ${countSold} sprzedanych)`;
 
       chartHtml += `
-        <div class="hist-col${activeCls}" data-bin-idx="${idx}" onclick="handleHistBarClick(${idx})" title="${escapeHtml(tooltip)}">
+        <div class="hist-col${activeCls}" data-bin-idx="${idx}" role="button" tabindex="0" aria-pressed="${isSelected ? 'true' : 'false'}" aria-label="${escapeHtml(tooltip)}" onclick="handleHistBarClick(${idx})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();handleHistBarClick(${idx});}" title="${escapeHtml(tooltip)}">
           <span class="hist-bar-count">${count}</span>
           <div class="hist-bar" style="height: ${heightPct}%;">
             ${countSold > 0 ? `<div class="hist-seg hist-seg-sold" style="height: ${pctSold}%;"></div>` : ''}
@@ -289,7 +323,6 @@
 
     container.innerHTML = chartHtml + labelsHtml;
 
-    // Attach bin data to window for click handler
     window._currentHistogramBins = bins;
     updateDrilldownBar();
   }
@@ -339,7 +372,6 @@
     let html = '';
 
     const catOffers = allOffers.filter(o => o.cat === selectedCategory);
-    const countTotal = catOffers.length;
     const countAvail = catOffers.filter(o => o.kind === 'available').length;
     const countRes = catOffers.filter(o => o.kind === 'reserved').length;
     const countSold = catOffers.filter(o => o.kind === 'sold').length;
@@ -367,7 +399,7 @@
 
     if (countSold > 0) {
       html += `
-        <label class="checkbox-label" style="margin-left: 0.5rem; align-self: center;">
+        <label class="checkbox-label show-sold-wrap">
           <input type="checkbox" id="chk-show-sold" ${catalogShowSold ? 'checked' : ''} onchange="toggleShowSold()">
           <span>Pokaż sprzedane (${countSold})</span>
         </label>
@@ -378,6 +410,13 @@
   }
 
   window.setCatalogFilter = function(type, val) {
+    // If called from hero metrics or room chips, ensure category is Mieszkanie
+    if (selectedCategory !== 'Mieszkanie') {
+      selectedCategory = 'Mieszkanie';
+      updateCategoryTabs();
+      renderHistogram();
+    }
+
     if (type === 'all') {
       catalogStatusFilter = 'all';
       catalogRoomsFilter = 'all';
@@ -403,7 +442,7 @@
 
   // --- Search Input ---
   window.handleSearchInput = function(val) {
-    catalogSearch = (val || '').trim().toLowerCase();
+    catalogSearch = (val || '').trim();
     const clearBtn = document.getElementById('search-clear-btn');
     if (clearBtn) {
       clearBtn.classList.toggle('hidden', !catalogSearch);
@@ -459,14 +498,12 @@
 
     if (!headEl || !bodyEl) return;
 
-    // Filter offers
     let items = allOffers.filter(o => o.cat === selectedCategory);
 
     // Status filter
     if (catalogStatusFilter !== 'all') {
       items = items.filter(o => o.kind === catalogStatusFilter);
     } else if (!catalogShowSold) {
-      // By default hide sold unless requested
       items = items.filter(o => o.kind !== 'sold');
     }
 
@@ -485,27 +522,37 @@
       if (selectedHistogramBin.isExact) {
         items = items.filter(o => o.price_num === selectedHistogramBin.min);
       } else if (histogramMode === 'total') {
-        items = items.filter(o => o.price_num >= selectedHistogramBin.min && o.price_num <= selectedHistogramBin.max);
+        items = items.filter(o => {
+          if (o.price_num == null) return false;
+          return o.price_num >= selectedHistogramBin.min &&
+            (selectedHistogramBin.isLast ? o.price_num <= selectedHistogramBin.max : o.price_num < selectedHistogramBin.max);
+        });
       } else {
         items = items.filter(o => {
           const sqm = (o.price_num && o.area_num) ? (o.price_num / o.area_num) : null;
-          return sqm != null && sqm >= selectedHistogramBin.min && sqm <= selectedHistogramBin.max;
+          if (sqm == null) return false;
+          return sqm >= selectedHistogramBin.min &&
+            (selectedHistogramBin.isLast ? sqm <= selectedHistogramBin.max : sqm < selectedHistogramBin.max);
         });
       }
     }
 
-    // Search query filter
+    // Search query filter (with diacritics support)
     if (catalogSearch) {
+      const normSearch = removeDiacritics(catalogSearch);
       items = items.filter(o => {
-        const text = [
+        const text = removeDiacritics([
           o.unit,
           o.cat,
           o.rooms ? o.rooms + ' pok' : '',
-          o.floor ? o.floor + ' p' : '',
+          o.floor || '',
+          o.staircase ? 'kl ' + o.staircase : '',
+          o.extras || '',
           o.area ? o.area + ' m2' : '',
-          o.price
-        ].join(' ').toLowerCase();
-        return text.includes(catalogSearch);
+          o.price || '',
+          o.status || ''
+        ].join(' '));
+        return text.includes(normSearch);
       });
     }
 
@@ -526,8 +573,8 @@
         vA = parseInt(a.rooms, 10) || 0;
         vB = parseInt(b.rooms, 10) || 0;
       } else if (catalogSortCol === 'floor') {
-        vA = parseInt(a.floor, 10) || 0;
-        vB = parseInt(b.floor, 10) || 0;
+        vA = parseFloorNum(a.floor);
+        vB = parseFloorNum(b.floor);
       } else if (catalogSortCol === 'price_m2') {
         vA = (a.price_num && a.area_num) ? (a.price_num / a.area_num) : 0;
         vB = (b.price_num && b.area_num) ? (b.price_num / b.area_num) : 0;
@@ -583,13 +630,17 @@
       }
     }
 
-    // Render Table Header
+    // Render Table Header with full keyboard accessibility
     let theadHtml = '<tr>';
     const sortIcon = (col) => {
-      if (catalogSortCol !== col) return '<span class="sort-icon">⇅</span>';
-      return `<span class="sort-icon">${catalogSortDir === 'asc' ? '▲' : '▼'}</span>`;
+      if (catalogSortCol !== col) return '<span class="sort-icon" aria-hidden="true">⇅</span>';
+      return `<span class="sort-icon" aria-hidden="true">${catalogSortDir === 'asc' ? '▲' : '▼'}</span>`;
     };
-    const th = (col, label) => `<th class="sortable${catalogSortCol === col ? ' sorted' : ''}" onclick="sortTableBy('${col}')">${label} ${sortIcon(col)}</th>`;
+    const th = (col, label) => {
+      const isSorted = catalogSortCol === col;
+      const ariaSort = isSorted ? (catalogSortDir === 'asc' ? 'ascending' : 'descending') : 'none';
+      return `<th class="sortable${isSorted ? ' sorted' : ''}" role="columnheader" tabindex="0" aria-sort="${ariaSort}" onclick="sortTableBy('${col}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortTableBy('${col}');}">${label} ${sortIcon(col)}</th>`;
+    };
 
     if (selectedCategory === 'Mieszkanie') {
       theadHtml += th('unit', 'Nr lokalu');
@@ -599,26 +650,25 @@
       theadHtml += th('price', 'Cena całkowita');
       theadHtml += th('price_m2', 'Cena za m²');
       theadHtml += th('status', 'Status');
-      theadHtml += '<th>Karta dewelopera</th>';
+      theadHtml += '<th role="columnheader">Karta dewelopera</th>';
     } else if (selectedCategory === 'Komórka') {
       theadHtml += th('unit', 'Nr komórki');
       theadHtml += th('area', 'Metraż');
       theadHtml += th('price', 'Cena');
       theadHtml += th('status', 'Status');
-      theadHtml += '<th>Karta dewelopera</th>';
+      theadHtml += '<th role="columnheader">Karta dewelopera</th>';
     } else {
-      // Hala garażowa & Parking
       theadHtml += th('unit', 'Nr miejsca');
       theadHtml += th('price', 'Cena');
       theadHtml += th('status', 'Status');
-      theadHtml += '<th>Karta dewelopera</th>';
+      theadHtml += '<th role="columnheader">Karta dewelopera</th>';
     }
     theadHtml += '</tr>';
     headEl.innerHTML = theadHtml;
 
     // Render Table Body
     if (items.length === 0) {
-      bodyEl.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">Brak lokali spełniających wybrane kryteria wyszukiwania.</td></tr>`;
+      bodyEl.innerHTML = `<tr><td colspan="8" class="table-empty-state">Brak lokali spełniających wybrane kryteria wyszukiwania.</td></tr>`;
       return;
     }
 
@@ -630,7 +680,8 @@
 
       let priceHtml = escapeHtml(o.price || 'Cena niedostępna');
       if (o.has_drop && o.delta_amt) {
-        priceHtml += ` <span class="price-drop-badge" title="Obniżka względem ceny pierwotnej">↓ -${Math.abs(o.delta_amt).toLocaleString()} zł</span>`;
+        const tooltip = o.history_tooltip ? o.history_tooltip : 'Obniżka względem ceny pierwotnej';
+        priceHtml += ` <span class="price-drop-badge" title="${escapeHtml(tooltip)}">↓ -${Math.abs(o.delta_amt).toLocaleString()} zł</span>`;
       }
 
       let priceM2Html = '—';
@@ -641,7 +692,7 @@
       tbodyHtml += '<tr>';
 
       if (selectedCategory === 'Mieszkanie') {
-        tbodyHtml += `<td class="td-unit"><span class="unit-status-dot dot-${kind}"></span><strong>${escapeHtml(o.unit)}</strong></td>`;
+        tbodyHtml += `<td class="td-unit"><span class="unit-status-dot dot-${kind}" aria-hidden="true"></span><strong>${escapeHtml(o.unit)}</strong></td>`;
         tbodyHtml += `<td>${escapeHtml(o.rooms || '—')} pok.</td>`;
         tbodyHtml += `<td>${escapeHtml(o.floor || '—')}</td>`;
         tbodyHtml += `<td>${escapeHtml(o.area ? o.area + ' m²' : '—')}</td>`;
@@ -649,12 +700,12 @@
         tbodyHtml += `<td class="price-m2-cell">${priceM2Html}</td>`;
         tbodyHtml += `<td><span class="status-pill pill-${kind}">${statusLabel}</span></td>`;
       } else if (selectedCategory === 'Komórka') {
-        tbodyHtml += `<td class="td-unit"><span class="unit-status-dot dot-${kind}"></span><strong>${escapeHtml(o.unit)}</strong></td>`;
+        tbodyHtml += `<td class="td-unit"><span class="unit-status-dot dot-${kind}" aria-hidden="true"></span><strong>${escapeHtml(o.unit)}</strong></td>`;
         tbodyHtml += `<td>${escapeHtml(o.area ? o.area + ' m²' : '—')}</td>`;
         tbodyHtml += `<td class="price-cell">${priceHtml}</td>`;
         tbodyHtml += `<td><span class="status-pill pill-${kind}">${statusLabel}</span></td>`;
       } else {
-        tbodyHtml += `<td class="td-unit"><span class="unit-status-dot dot-${kind}"></span><strong>${escapeHtml(o.unit)}</strong></td>`;
+        tbodyHtml += `<td class="td-unit"><span class="unit-status-dot dot-${kind}" aria-hidden="true"></span><strong>${escapeHtml(o.unit)}</strong></td>`;
         tbodyHtml += `<td class="price-cell">${priceHtml}</td>`;
         tbodyHtml += `<td><span class="status-pill pill-${kind}">${statusLabel}</span></td>`;
       }
@@ -676,10 +727,22 @@
   };
 
   function updateTimelineScope() {
-    const rows = document.querySelectorAll('.week-event-row');
-    rows.forEach(row => {
+    const isFlatsOnly = timelineScope === 'flats';
+
+    // Toggle entire week cards if they contain no flats
+    document.querySelectorAll('.week-card').forEach(card => {
+      const hasFlats = card.getAttribute('data-has-flats') === 'true';
+      if (isFlatsOnly && !hasFlats) {
+        card.classList.add('hidden-by-scope');
+      } else {
+        card.classList.remove('hidden-by-scope');
+      }
+    });
+
+    // Toggle individual event rows within visible cards
+    document.querySelectorAll('.week-event-row').forEach(row => {
       const cat = row.getAttribute('data-cat');
-      if (timelineScope === 'flats' && cat !== 'Mieszkanie') {
+      if (isFlatsOnly && cat !== 'Mieszkanie') {
         row.classList.add('hidden-by-scope');
       } else {
         row.classList.remove('hidden-by-scope');

@@ -21,32 +21,6 @@ GROUPS = {
 }
 GONE_RE = re.compile(r"\[GONE\]\*\*\s+(Mieszkanie|Hala garażowa|Komórka|Miejsce postojowe)\s")
 
-POLISH_MONTHS = [
-    "",
-    "Styczeń",
-    "Luty",
-    "Marzec",
-    "Kwiecień",
-    "Maj",
-    "Czerwiec",
-    "Lipiec",
-    "Sierpień",
-    "Wrzesień",
-    "Październik",
-    "Listopad",
-    "Grudzień",
-]
-
-POLISH_WEEKDAYS = [
-    "Poniedziałek",
-    "Wtorek",
-    "Środa",
-    "Czwartek",
-    "Piątek",
-    "Sobota",
-    "Niedziela",
-]
-
 
 def status_kind(status: str) -> str:
     text = (status or "").casefold()
@@ -83,28 +57,6 @@ def plural_events(count: int) -> str:
     if count % 10 in (2, 3, 4):
         return f"{count} zdarzenia"
     return f"{count} zdarzeń"
-
-
-def history_period(timestamp: str, view: str) -> tuple[str, str, str]:
-    """Return (key, title, subtitle) for timeline grouping."""
-    try:
-        day = datetime.fromisoformat(timestamp).date()
-    except (ValueError, TypeError):
-        return "unknown", "Data nieznana", ""
-
-    if view == "week":
-        year, week, _ = day.isocalendar()
-        monday = day - timedelta(days=day.weekday())
-        sunday = monday + timedelta(days=6)
-        return (
-            f"{year}-W{week:02d}",
-            f"Tydzień {week} ({year})",
-            f"{monday:%d.%m} – {sunday:%d.%m.%Y}",
-        )
-    if view == "month":
-        month_name = POLISH_MONTHS[day.month] if 1 <= day.month <= 12 else f"{day.month:02d}"
-        return f"{day:%Y-%m}", f"{month_name} {day.year}", f"{day:%m.%Y}"
-    return day.isoformat(), day.strftime("%d.%m.%Y"), POLISH_WEEKDAYS[day.weekday()]
 
 
 def event_badge(event_type: str, status: str = "") -> tuple[str, str]:
