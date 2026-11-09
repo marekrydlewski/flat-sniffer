@@ -14,6 +14,8 @@ on:
       - "sold_registry.json"
       - "history.log"
       - ".github/workflows/flat-sniffer.yml"
+      - "pyproject.toml"
+      - "uv.lock"
 
 concurrency:
   group: flat-sniffer
@@ -40,15 +42,15 @@ jobs:
           python-version: "3.12"
 
       - name: Run flat-sniffer
-        if: github.event_name != 'push'
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: uv run flat_sniffer.py --quiet --events-out events.json
 
       - name: Update known sold offers
-        if: github.event_name != 'push'
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: uv run scan_sold.py --out sold_registry.json
 
       - name: Commit updated registry
-        if: github.event_name != 'push'
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
           git config user.name "flat-sniffer-bot"
           git config user.email "actions@users.noreply.github.com"
@@ -57,7 +59,7 @@ jobs:
           git push
 
       - name: Open issue if something changed
-        if: github.event_name != 'push'
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -102,7 +104,7 @@ jobs:
         uses: actions/deploy-pages@v4
 
       - name: Notify on failure
-        if: failure() || cancelled()
+        if: (failure() || cancelled()) && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

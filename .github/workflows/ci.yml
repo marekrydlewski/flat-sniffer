@@ -6,6 +6,13 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -16,9 +23,17 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Run lint and tests
-        run: |
-          uv run --group dev ruff check .
-          uv run --group dev ruff format --check .
-          uv run --group dev ty check .
-          uv run python -m unittest discover tests
+      - name: Lint (ruff)
+        run: uv run --group dev ruff check .
+
+      - name: Format check (ruff)
+        run: uv run --group dev ruff format --check .
+
+      - name: Type check (ty)
+        run: uv run --group dev ty check .
+
+      - name: Unit tests
+        run: uv run python -m unittest discover tests
+
+      - name: Test dashboard render
+        run: uv run render_dashboard.py --out /tmp/smoke-dashboard.html
