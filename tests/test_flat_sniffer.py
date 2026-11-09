@@ -278,5 +278,65 @@ class TestCandidatesGapScanning(unittest.TestCase):
         self.assertNotIn("https://swietegomichala.pl/pl/mieszkanie/SM2-A1-3", res)
 
 
+class TestSoldOfferMetadataParsing(unittest.TestCase):
+    def test_metadata_regexes(self):
+        from scan_sold import AREA_RE, FLOOR_RE, ROOMS_RE, STAIRCASE_RE
+
+        sample_html = """
+        Klatka 34, piętro 2
+        <table class="offers-data">
+            <tr><td>Powierzchnia</td><th class="text-right">43,02 m<sup>2</sup></th></tr>
+            <tr><td>Pokoje</td><th class="text-right">2</th></tr>
+        </table>
+        """
+        area = AREA_RE.search(sample_html)
+        rooms = ROOMS_RE.search(sample_html)
+        floor = FLOOR_RE.search(sample_html)
+        staircase = STAIRCASE_RE.search(sample_html)
+
+        self.assertIsNotNone(area)
+        assert area is not None
+        self.assertEqual(area.group(1), "43,02")
+        self.assertIsNotNone(rooms)
+        assert rooms is not None
+        self.assertEqual(rooms.group(1), "2")
+        self.assertIsNotNone(floor)
+        assert floor is not None
+        self.assertEqual(floor.group(1), "2")
+        self.assertIsNotNone(staircase)
+        assert staircase is not None
+        self.assertEqual(staircase.group(1), "34")
+
+    def test_metadata_regexes_edge_cases(self):
+        from scan_sold import AREA_RE, FLOOR_RE, ROOMS_RE, STAIRCASE_RE
+
+        # Parter, unicode m², and alphanumeric staircase
+        html_parter = "Klatka 38A, piętro Parter Powierzchnia </td> <th>52.5 m²</th> Pokoje </td> <th>3</th>"
+        area = AREA_RE.search(html_parter)
+        rooms = ROOMS_RE.search(html_parter)
+        floor = FLOOR_RE.search(html_parter)
+        staircase = STAIRCASE_RE.search(html_parter)
+
+        self.assertIsNotNone(area)
+        assert area is not None
+        self.assertEqual(area.group(1), "52.5")
+        self.assertIsNotNone(rooms)
+        assert rooms is not None
+        self.assertEqual(rooms.group(1), "3")
+        self.assertIsNotNone(floor)
+        assert floor is not None
+        self.assertEqual(floor.group(1).casefold(), "parter")
+        self.assertIsNotNone(staircase)
+        assert staircase is not None
+        self.assertEqual(staircase.group(1), "38A")
+
+        # Underground floor (pietro -1)
+        html_underground = "pietro -1"
+        floor_neg = FLOOR_RE.search(html_underground)
+        self.assertIsNotNone(floor_neg)
+        assert floor_neg is not None
+        self.assertEqual(floor_neg.group(1), "-1")
+
+
 if __name__ == "__main__":
     unittest.main()
