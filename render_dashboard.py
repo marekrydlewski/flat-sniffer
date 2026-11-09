@@ -6,7 +6,7 @@ import argparse
 import html
 import json
 import re
-from collections import Counter
+from collections import Counter, defaultdict
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -120,218 +120,173 @@ def event_badge(event_type: str, status: str = "") -> tuple[str, str]:
     return ("badge-neutral", event_type.replace("_", " ").title())
 
 
-def offer_card_html(offer: dict) -> str:
-    kind = offer.get("status_kind") or status_kind(offer.get("status", ""))
-    cat = offer.get("category", "")
-    unit = offer.get("unit", "")
-    price = offer.get("price") or "Cena niedostępna"
-    url = offer.get("url", "#")
-    area = offer.get("area_m2")
-    rooms = offer.get("rooms")
-    floor = offer.get("floor")
-    staircase = offer.get("staircase")
-
-    meta_parts = []
-    if area:
-        meta_parts.append(f"{area} m²")
-    if rooms:
-        meta_parts.append(f"{rooms} pok.")
-    if floor:
-        meta_parts.append(str(floor))
-    if staircase:
-        meta_parts.append(f"kl. {staircase}")
-    meta_text = " · ".join(meta_parts) or group_name(cat)
-
-    label = status_label(kind)
-    price_content = ""
-    has_drop = offer.get("has_price_drop")
-    has_rise = offer.get("has_price_rise")
-
-    if has_drop or has_rise:
-        delta_amt = offer.get("total_delta_amount")
-        delta_pct = offer.get("total_delta_pct")
-        init_p = offer.get("initial_price")
-        history_tooltip = offer.get("history_tooltip", "")
-        if delta_amt is not None and delta_pct is not None:
-            pill_cls = "price-drop-pill" if has_drop else "price-rise-pill"
-            sign = "↓ -" if has_drop else "↑ +"
-            delta_str = format_amount(abs(delta_amt))
-            pct_formatted = f"{abs(delta_pct):.1f}%"
-            tooltip_attr = f' title="{html.escape(history_tooltip)}"' if history_tooltip else ""
-            price_content = f"""<div class="card-price-col">
-          <div class="card-price-topline">
-            <span class="card-old-price">{html.escape(init_p or "")}</span>
-            <span class="{pill_cls}"{tooltip_attr}>{sign}{delta_str} zł ({pct_formatted})</span>
-          </div>
-          <strong class="card-price">{html.escape(price)}</strong>
-        </div>"""
-
-    if not price_content:
-        if (not offer.get("price")) and offer.get("last_known_price"):
-            last_p = offer["last_known_price"]
-            price_content = f"""<div class="card-price-col">
-          <strong class="card-price price-muted">Cena ukryta</strong>
-          <span class="card-last-known">ostatnio: {html.escape(last_p)}</span>
-        </div>"""
-        else:
-            price_content = f'<strong class="card-price">{html.escape(price)}</strong>'
-
-    is_recent = offer.get("is_recent", False)
-    recent_badge = (
-        '<span class="badge-recent-change" title="Pozycja zmieniła się w ostatnim sprawdzeniu">✦ Ostatnia zmiana</span>'
-        if is_recent
-        else ""
-    )
-
-    return f"""<a class="flat-card status-border-{kind}" href="{html.escape(url, quote=True)}" target="_blank" rel="noreferrer" data-category="{html.escape(cat)}" data-status="{kind}" data-group="{html.escape(group_name(cat))}">
-      <div class="card-header">
-        <div class="card-title-wrap">
-          <span class="status-dot dot-{kind}" aria-hidden="true"></span>
-          <span class="card-unit">{html.escape(cat)} {html.escape(unit)}</span>
-          {recent_badge}
-        </div>
-        <div class="card-header-actions">
-          <button class="card-copy-btn" type="button" title="Kopiuj link do schowka" onclick="copyOfferLink(event)">🔗</button>
-          <span class="status-pill pill-{kind}">{html.escape(label)}</span>
-        </div>
-      </div>
-      <div class="card-body">
-        <span class="card-meta">{html.escape(meta_text)}</span>
-        <div class="card-price-row">
-          {price_content}
-          <span class="card-link-icon" aria-hidden="true">↗</span>
-        </div>
-      </div>
-    </a>"""
-
-
-def event_card_html(event: dict) -> str:
+def event_row_html(event: dict) -> str:
     event_type = event.get("event", "")
     badge_cls, badge_text = event_badge(event_type, event.get("status", ""))
     cat = event.get("category", "")
     unit = event.get("unit", "")
     url = event.get("url", "#")
-    price = event.get("price") or ""
 
     if event_type == "status_change":
+        old_s = event.get("old_status", "")
+        new_s = event.get("new_status", "")
         summary = (
-            f'<span class="diff-old">{html.escape(event.get("old_status", ""))}</span> '
+            f'<span class="diff-old">{html.escape(old_s)}</span> '
             f'<span class="diff-arrow">→</span> '
-            f'<strong class="diff-new">{html.escape(event.get("new_status", ""))}</strong>'
+            f'<strong class="diff-new">{html.escape(new_s)}</strong>'
         )
     elif event_type == "price_change":
-        old_p = event.get("old_price") or "—"
-        new_p = event.get("new_price") or "—"
-        delta_amount = event.get("delta_amount")
-        delta_pct = event.get("delta_pct")
-        if delta_amount is None and event.get("old_price") and event.get("new_price"):
-            old_num = parse_price_num(event.get("old_price"))
-            new_num = parse_price_num(event.get("new_price"))
-            if old_num is not None and new_num is not None:
-                delta_amount = new_num - old_num
-                if old_num > 0:
-                    delta_pct = round((delta_amount / old_num) * 100, 2)
-
-        delta_badge = ""
-        if delta_amount is not None:
-            sign = "+" if delta_amount > 0 else ""
-            delta_cls = "event-delta-drop" if delta_amount < 0 else "event-delta-rise"
-            delta_badge = (
-                f' <span class="{delta_cls}">{sign}{format_amount(delta_amount)} zł ({sign}{delta_pct:.2f}%)</span>'
+        old_p = event.get("old_price")
+        new_p = event.get("new_price")
+        if old_p and new_p:
+            old_num = parse_price_num(old_p)
+            new_num = parse_price_num(new_p)
+            delta_badge = ""
+            if old_num and new_num:
+                delta = new_num - old_num
+                sign = "+" if delta > 0 else ""
+                delta_cls = "delta-drop" if delta < 0 else "delta-rise"
+                pct = round((delta / old_num) * 100, 1)
+                delta_badge = f' <span class="{delta_cls}">{sign}{format_amount(delta)} zł ({sign}{pct}%)</span>'
+            summary = (
+                f'<span class="diff-old">{html.escape(old_p)}</span> '
+                f'<span class="diff-arrow">→</span> '
+                f'<strong class="diff-new">{html.escape(new_p)}</strong>{delta_badge}'
             )
-        summary = (
-            f'<span class="diff-old">{html.escape(old_p)}</span> '
-            f'<span class="diff-arrow">→</span> '
-            f'<strong class="diff-new">{html.escape(new_p)}</strong>{delta_badge}'
-        )
+        elif old_p and not new_p:
+            summary = f'<span class="text-muted">Cena ukryta (ostatnio: {html.escape(old_p)})</span>'
+        else:
+            summary = '<span class="diff-new">Aktualizacja ceny</span>'
     elif event_type == "removed_from_listing":
         last_st = event.get("last_status")
         last_info = f" (było: {last_st})" if last_st else ""
-        summary = f'<span class="text-muted">Usunięto ze strony dewelopera{html.escape(last_info)} · prawdopodobnie sprzedane/wycofane</span>'
+        summary = (
+            f'<span class="text-danger">Usunięto z oferty{html.escape(last_info)} · prawdopodobnie sprzedane</span>'
+        )
+    elif event_type == "new_listing":
+        st = event.get("status", "Wolne")
+        summary = f'<span class="text-green">Pojawiło się w ofercie: {html.escape(st)}</span>'
     else:
-        st = event.get("status", "")
-        summary = f'<span class="diff-new">{html.escape(st)}</span>' if st else "Nowe ogłoszenie"
+        summary = html.escape(str(event.get("note") or event_type))
 
-    price_html = f'<span class="event-price">{html.escape(price)}</span>' if price else ""
+    link_html = (
+        f'<a class="event-link-btn" href="{html.escape(url, quote=True)}" target="_blank" rel="noreferrer" title="Zobacz na stronie dewelopera">Karta ↗</a>'
+        if url and url != "#"
+        else ""
+    )
 
-    return f"""<a class="event-item" href="{html.escape(url, quote=True)}" target="_blank" rel="noreferrer" data-event-type="{html.escape(event_type)}" data-category="{html.escape(cat)}">
-      <div class="event-item-top">
+    return f"""<div class="week-event-row" data-cat="{html.escape(cat)}">
+      <div class="event-left">
         <span class="event-badge {badge_cls}">{html.escape(badge_text)}</span>
-        {price_html}
+        <strong class="event-unit-name">{html.escape(cat)} {html.escape(unit)}</strong>
+        <span class="event-diff">{summary}</span>
       </div>
-      <div class="event-item-main">
-        <strong class="event-unit">{html.escape(cat)} {html.escape(unit)}</strong>
-        <div class="event-summary">{summary}</div>
+      <div class="event-right">
+        {link_html}
       </div>
-      <div class="event-item-arrow">↗</div>
-    </a>"""
+    </div>"""
 
 
-def build_timeline_html(history: list[dict], view: str) -> str:
-    periods: dict[str, dict] = {}
-    for event in reversed(history):
-        key, title, subtitle = history_period(event.get("ts", ""), view)
-        if key not in periods:
-            periods[key] = {
-                "title": title,
-                "subtitle": subtitle,
-                "events": [],
-                "counts": Counter(),
-            }
-        periods[key]["events"].append(event)
-        periods[key]["counts"][event.get("event", "other")] += 1
+def build_weekly_changes_html(history: list[dict], weeks_count: int = 12) -> str:
+    """Build clean weekly accordion change log for Block 2."""
+    weeks: dict[str, list[dict]] = defaultdict(list)
+    for e in history:
+        ts = e.get("ts") or e.get("detected_at")
+        if not ts:
+            continue
+        try:
+            dt = datetime.fromisoformat(ts)
+        except (ValueError, TypeError):
+            pass
+        else:
+            y, w, _ = dt.isocalendar()
+            weeks[f"{y}-W{w:02d}"].append(e)
 
-    if not periods:
-        return '<div class="empty-state">Brak zapisanych zmian w historii.</div>'
+    sorted_week_keys = sorted(weeks.keys(), reverse=True)
+    if not sorted_week_keys:
+        return '<div class="empty-state">Brak zarejestrowanych zmian w historii.</div>'
 
-    sections = []
-    for idx, (key, data) in enumerate(periods.items()):
-        events = data["events"]
-        counts = data["counts"]
-        is_first = idx == 0
+    cards = []
+    for idx, w_key in enumerate(sorted_week_keys[:weeks_count]):
+        events = weeks[w_key]
+        year_str, w_num_str = w_key.split("-W")
+        w_year = int(year_str)
+        w_num = int(w_num_str)
 
-        breakdown_pills = []
-        if counts["new_listing"]:
-            breakdown_pills.append(f'<span class="mini-chip chip-green">+{counts["new_listing"]} nowe</span>')
-        if counts["status_change"]:
-            breakdown_pills.append(f'<span class="mini-chip chip-amber">~{counts["status_change"]} status</span>')
-        if counts["price_change"]:
-            breakdown_pills.append(f'<span class="mini-chip chip-indigo">~{counts["price_change"]} cena</span>')
-        if counts["removed_from_listing"]:
-            breakdown_pills.append(
-                f'<span class="mini-chip chip-red">-{counts["removed_from_listing"]} zniknęło</span>'
-            )
-        breakdown_html = "".join(breakdown_pills)
-        events_html = "".join(event_card_html(e) for e in events)
-        open_attr = " open" if is_first else ""
+        first_day_of_year = datetime(w_year, 1, 4, tzinfo=UTC).date()
+        monday = first_day_of_year + timedelta(weeks=w_num - 1)
+        monday = monday - timedelta(days=monday.weekday())
+        sunday = monday + timedelta(days=6)
+        dates_label = f"{monday:%d.%m} – {sunday:%d.%m.%Y}"
 
-        sections.append(
-            f"""<details class="timeline-group"{open_attr} data-period-key="{html.escape(key)}">
-        <summary class="timeline-summary">
-          <div class="timeline-summary-left">
-            <span class="timeline-marker"></span>
-            <div>
-              <div class="timeline-title-row">
-                <h3 class="timeline-title">{html.escape(data["title"])}</h3>
-                <span class="timeline-count-badge">{plural_events(len(events))}</span>
-              </div>
-              {f'<span class="timeline-subtitle">{html.escape(data["subtitle"])}</span>' if data["subtitle"] else ""}
-            </div>
-          </div>
-          <div class="timeline-summary-right">
-            <div class="timeline-chips">{breakdown_html}</div>
-            <span class="accordion-chevron" aria-hidden="true">▾</span>
-          </div>
-        </summary>
-        <div class="timeline-events-list">
-          {events_html}
-        </div>
-      </details>"""
+        flats_events = [e for e in events if e.get("category") == "Mieszkanie"]
+        has_flats = len(flats_events) > 0
+
+        flats_sold = sum(1 for e in flats_events if e.get("event") == "removed_from_listing")
+        flats_res = sum(
+            1
+            for e in flats_events
+            if e.get("event") == "status_change" and "rezerw" in (e.get("new_status") or "").casefold()
+        )
+        flats_free = sum(
+            1
+            for e in flats_events
+            if e.get("event") == "status_change" and "wolne" in (e.get("new_status") or "").casefold()
+        )
+        flats_drops = sum(
+            1
+            for e in flats_events
+            if e.get("event") == "price_change"
+            and parse_price_num(e.get("old_price"))
+            and parse_price_num(e.get("new_price"))
+            and (parse_price_num(e.get("new_price")) or 0) < (parse_price_num(e.get("old_price")) or 0)
         )
 
-    return "".join(sections)
+        chips = []
+        if flats_sold:
+            chips.append(f'<span class="week-chip chip-sold">−{flats_sold} sprzedane</span>')
+        if flats_res:
+            chips.append(f'<span class="week-chip chip-res">+{flats_res} rezerwacja</span>')
+        if flats_free:
+            chips.append(f'<span class="week-chip chip-free">+{flats_free} powrót do wolnych</span>')
+        if flats_drops:
+            chips.append(f'<span class="week-chip chip-drop">🔥 {flats_drops} obniżka cen</span>')
+
+        other_count = len(events) - len(flats_events)
+        if other_count > 0:
+            chips.append(f'<span class="week-chip chip-other">+{other_count} inne lokale</span>')
+
+        if not chips:
+            chips.append(f'<span class="week-chip chip-neutral">{len(events)} zmian ogółem</span>')
+
+        open_attr = " open" if idx == 0 else ""
+        events_rows_html = "".join(event_row_html(e) for e in reversed(events))
+
+        cards.append(
+            f"""<details class="week-card"{open_attr} data-week="{w_key}" data-has-flats="{"true" if has_flats else "false"}">
+          <summary class="week-summary">
+            <div class="week-summary-left">
+              <span class="week-badge">T{w_num}</span>
+              <div class="week-info">
+                <strong class="week-title">Tydzień {w_num} ({w_year})</strong>
+                <span class="week-dates">{dates_label}</span>
+              </div>
+            </div>
+            <div class="week-summary-right">
+              <div class="week-chips">{"".join(chips)}</div>
+              <span class="week-chevron" aria-hidden="true">▾</span>
+            </div>
+          </summary>
+          <div class="week-events-list">
+            {events_rows_html}
+          </div>
+        </details>"""
+        )
+
+    return "".join(cards)
 
 
+# Preserved for unit test compatibility
 def trend_card_html(
     group: str,
     total_gone: int,
@@ -588,79 +543,7 @@ def normalize_offers(
             o["price_per_m2"] = p.current_price_per_m2 or p.last_known_price_per_m2
             o["history_tooltip"] = p.history_tooltip
 
-    recent_units = set()
-    if events:
-        for e in events:
-            if e.get("unit"):
-                recent_units.add((e.get("category", ""), str(e.get("unit", ""))))
-    elif history:
-        try:
-            latest_date = datetime.fromisoformat(history[-1].get("ts", "")).date()
-            for e in reversed(history):
-                if datetime.fromisoformat(e.get("ts", "")).date() == latest_date:
-                    if e.get("unit"):
-                        recent_units.add((e.get("category", ""), str(e.get("unit", ""))))
-                else:
-                    break
-        except (ValueError, TypeError):
-            pass
-
-    for o in all_offers:
-        key = (o.get("category", ""), str(o.get("unit", "")))
-        o["is_recent"] = key in recent_units
-
     return offers, normalized_sold, all_offers
-
-
-def build_category_progress_cards(offers: list[dict], normalized_sold: list[dict]) -> str:
-    cards = []
-    for name in GROUPS:
-        cat_offers = [o for o in offers if group_name(o.get("category", "")) == name]
-        cat_sold = [s for s in normalized_sold if group_name(s.get("category", "")) == name]
-        cat_total = len(cat_offers) + len(cat_sold)
-        cat_counts = Counter(o["status_kind"] for o in cat_offers)
-        c_avail = cat_counts["available"]
-        c_res = cat_counts["reserved"]
-        c_sold = len(cat_sold)
-
-        pct_avail = (c_avail / cat_total * 100) if cat_total else 0
-        pct_res = (c_res / cat_total * 100) if cat_total else 0
-        pct_sold = (c_sold / cat_total * 100) if cat_total else 0
-
-        cards.append(
-            f"""<article class="cat-stat-card">
-        <div class="cat-stat-header">
-          <h3 class="cat-stat-title">{html.escape(name)}</h3>
-          <span class="cat-stat-total">{cat_total} pozycji</span>
-        </div>
-        <div class="cat-progress-bar" role="progressbar" aria-label="{html.escape(name)} podział statusów">
-          <span class="progress-segment seg-avail" style="width:{pct_avail:.1f}%" title="Wolne: {c_avail} ({pct_avail:.1f}%)"></span>
-          <span class="progress-segment seg-res" style="width:{pct_res:.1f}%" title="Rezerwacje: {c_res} ({pct_res:.1f}%)"></span>
-          <span class="progress-segment seg-sold" style="width:{pct_sold:.1f}%" title="Sprzedane: {c_sold} ({pct_sold:.1f}%)"></span>
-        </div>
-        <div class="cat-stat-grid">
-          <div class="cat-stat-item">
-            <span class="cat-stat-label"><span class="dot dot-available"></span> Wolne</span>
-            <strong class="cat-stat-val">{c_avail}</strong>
-          </div>
-          <div class="cat-stat-item">
-            <span class="cat-stat-label"><span class="dot dot-reserved"></span> Rezerwacja</span>
-            <strong class="cat-stat-val">{c_res}</strong>
-          </div>
-          <div class="cat-stat-item">
-            <span class="cat-stat-label"><span class="dot dot-sold"></span> Sprzedane</span>
-            <strong class="cat-stat-val">{c_sold}</strong>
-          </div>
-        </div>
-        <div class="cat-stat-footer">
-          <button class="cat-stat-btn" type="button" onclick="filterCatalogByGroup('{html.escape(name)}')">
-            <span>Przeglądaj w katalogu ({cat_total})</span>
-            <span class="btn-arrow" aria-hidden="true">→</span>
-          </button>
-        </div>
-      </article>"""
-        )
-    return "".join(cards)
 
 
 def build_compact_offers_json(all_offers: list[dict]) -> list[dict]:
@@ -687,8 +570,8 @@ def build_compact_offers_json(all_offers: list[dict]) -> list[dict]:
             "delta_pct": o.get("total_delta_pct"),
             "initial_price": o.get("initial_price") or "",
             "last_known_price": o.get("last_known_price") or "",
+            "price_per_m2": o.get("price_per_m2"),
             "history_tooltip": o.get("history_tooltip") or "",
-            "recent": bool(o.get("is_recent")),
         }
         for o in all_offers
     ]
@@ -703,66 +586,100 @@ def build_dashboard_context(
     styles_css: str,
     app_js: str,
 ) -> dict[str, str]:
-    offers, normalized_sold, all_offers = normalize_offers(registry, sold, history, events)
+    offers, _normalized_sold, all_offers = normalize_offers(registry, sold, history, events)
 
-    drops_count = sum(1 for o in all_offers if o.get("has_price_drop"))
-    drops_pct_avg = (
-        round(
-            sum(abs(o.get("total_delta_pct") or 0) for o in all_offers if o.get("has_price_drop")) / drops_count,
+    # Flats specific calculations
+    flats = [o for o in all_offers if o.get("category") == "Mieszkanie"]
+    flats_active = [o for o in offers if o.get("category") == "Mieszkanie"]
+    flats_avail = [o for o in flats_active if o.get("status_kind") == "available"]
+    flats_res = [o for o in flats_active if o.get("status_kind") == "reserved"]
+    flats_sold = [o for o in flats if o.get("status_kind") == "sold"]
+
+    flats_total = len(flats)
+    c_flats_avail = len(flats_avail)
+    c_flats_res = len(flats_res)
+    c_flats_sold = len(flats_sold)
+
+    flats_avail_pct = round((c_flats_avail / flats_total * 100), 1) if flats_total else 0.0
+    flats_res_pct = round((c_flats_res / flats_total * 100), 1) if flats_total else 0.0
+    flats_sold_pct = round((c_flats_sold / flats_total * 100), 1) if flats_total else 0.0
+
+    # Pricing metrics for available flats
+    avail_prices: list[int] = []
+    avail_sqm: list[int] = []
+    for o in flats_avail:
+        p = parse_price_num(o.get("price"))
+        a = parse_area_num(o.get("area_m2"))
+        if p is not None:
+            avail_prices.append(p)
+            if a is not None and a > 0:
+                avail_sqm.append(round(p / a))
+
+    flats_min_price = f"{min(avail_prices):,}".replace(",", " ") if avail_prices else "0"
+    flats_max_price = f"{max(avail_prices):,}".replace(",", " ") if avail_prices else "0"
+    flats_avg_price = f"{round(sum(avail_prices) / len(avail_prices)):,}".replace(",", " ") if avail_prices else "0"
+
+    flats_min_sqm = f"{min(avail_sqm):,}".replace(",", " ") if avail_sqm else "0"
+    flats_max_sqm = f"{max(avail_sqm):,}".replace(",", " ") if avail_sqm else "0"
+    flats_avg_sqm = f"{round(sum(avail_sqm) / len(avail_sqm)):,}".replace(",", " ") if avail_sqm else "0"
+
+    flats_drops = [o for o in flats if o.get("has_price_drop")]
+    flats_drops_count = len(flats_drops)
+    if flats_drops:
+        avg_drop = round(
+            sum(abs(o.get("total_delta_pct") or 0) for o in flats_drops) / flats_drops_count,
             1,
         )
-        if drops_count
-        else 0.0
-    )
-    drops_sub = f"średnio -{drops_pct_avg}% taniej" if drops_count else "brak obniżek"
-
-    counts = Counter(o["status_kind"] for o in all_offers)
-    total_known = len(all_offers)
-    active_count = len(offers)
-    avail_count = counts["available"]
-    res_count = counts["reserved"]
-    sold_count = counts["sold"]
-
-    avail_pct = round((avail_count / total_known) * 100, 1) if total_known else 0
-    res_pct = round((res_count / total_known) * 100, 1) if total_known else 0
-    sold_pct = round((sold_count / total_known) * 100, 1) if total_known else 0
-
-    if events:
-        latest_changes_html = f'<div class="events-grid">{"".join(event_card_html(e) for e in events[:6])}</div>' + (
-            f'<div class="latest-more-wrap"><button class="btn btn-secondary btn-sm" onclick="switchTab(\'tab-timeline\')">Zobacz wszystkie zmiany z tej sesji ({len(events)}) →</button></div>'
-            if len(events) > 6
-            else ""
-        )
+        flats_drops_sub = f"średnio -{avg_drop}% względem ceny pierwotnej"
     else:
-        latest_changes_html = '<div class="empty-state-card"><div class="empty-icon">✓</div><div><strong>Brak nowych zmian</strong><p>Wszystkie oferty są zgodne z poprzednim stanem.</p></div></div>'
+        flats_drops_sub = "brak obniżek"
+
+    # Rooms count for available flats
+    rooms_avail = Counter(str(o.get("rooms") or "").strip() for o in flats_avail)
+    rooms_2 = rooms_avail.get("2", 0)
+    rooms_3 = rooms_avail.get("3", 0)
+    rooms_4 = rooms_avail.get("4", 0)
+
+    # Active offer counts for category tabs
+    flats_active_count = len(flats_active)
+    garage_active = [o for o in offers if o.get("category") == "Hala garażowa"]
+    garage_active_count = len(garage_active)
+    storage_active = [o for o in offers if o.get("category") == "Komórka"]
+    storage_active_count = len(storage_active)
+    parking_active = [o for o in offers if o.get("category") == "Miejsce postojowe"]
+    parking_active_count = len(parking_active)
 
     compact_offers_json = build_compact_offers_json(all_offers)
+    weekly_changes_html = build_weekly_changes_html(history)
 
     return {
         "styles": styles_css,
         "app_js": app_js,
         "offers_json": json.dumps(compact_offers_json, ensure_ascii=False, allow_nan=False),
         "generated": datetime.now(UTC).strftime("%d.%m.%Y, %H:%M UTC"),
-        "events_count": str(len(events)),
-        "history_count": str(len(history)),
-        "avail_count": str(avail_count),
-        "avail_pct": str(avail_pct),
-        "res_count": str(res_count),
-        "res_pct": str(res_pct),
-        "sold_count": str(sold_count),
-        "sold_pct": str(sold_pct),
-        "drops_count": str(drops_count),
-        "drops_sub": drops_sub,
-        "total_known": str(total_known),
-        "active_count": str(active_count),
-        "latest_changes_html": latest_changes_html,
-        "categories_html": build_category_progress_cards(offers, normalized_sold),
-        "weekly_trends_html": weekly_trend_charts(history, weeks_count=8),
-        "daily_trends_html": daily_trend_charts(history, issues),
-        "catalog_cards_html": "".join(offer_card_html(o) for o in all_offers[:32]),
-        "timeline_weeks_html": build_timeline_html(history, "week"),
-        "timeline_months_html": build_timeline_html(history, "month"),
-        "timeline_days_html": build_timeline_html(history, "day"),
+        "flats_total": str(flats_total),
+        "flats_avail": str(c_flats_avail),
+        "flats_res": str(c_flats_res),
+        "flats_sold": str(c_flats_sold),
+        "flats_avail_pct": str(flats_avail_pct),
+        "flats_res_pct": str(flats_res_pct),
+        "flats_sold_pct": str(flats_sold_pct),
+        "flats_min_price": flats_min_price,
+        "flats_max_price": flats_max_price,
+        "flats_avg_price": flats_avg_price,
+        "flats_min_sqm": flats_min_sqm,
+        "flats_max_sqm": flats_max_sqm,
+        "flats_avg_sqm": flats_avg_sqm,
+        "flats_drops_count": str(flats_drops_count),
+        "flats_drops_sub": flats_drops_sub,
+        "rooms_2": str(rooms_2),
+        "rooms_3": str(rooms_3),
+        "rooms_4": str(rooms_4),
+        "flats_active_count": str(flats_active_count),
+        "garage_active_count": str(garage_active_count),
+        "storage_active_count": str(storage_active_count),
+        "parking_active_count": str(parking_active_count),
+        "weekly_changes_html": weekly_changes_html,
     }
 
 
