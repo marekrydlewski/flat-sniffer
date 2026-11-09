@@ -424,8 +424,7 @@ _EVENT_FORMATTERS = {
 
 
 def format_event(e: dict) -> str:
-    """Renders a single diff event as a plain-text line. Shared between the console
-    report (print_report, below) and format_issue.py so the two outputs can't drift."""
+    """Renders a single diff event as a plain-text line for the console report (print_report, below)."""
     formatter = _EVENT_FORMATTERS.get(e["event"])
     return formatter(e) if formatter else json.dumps(e, ensure_ascii=False)
 

@@ -17,7 +17,6 @@ The project uses [uv](https://docs.astral.sh/uv/) for execution and tooling.
 uv run flat_sniffer.py                              # Fetch, diff, print changes, save
 uv run flat_sniffer.py --quiet                       # Run quietly (used by CI)
 uv run flat_sniffer.py --events-out events.json       # Export diff to JSON
-uv run format_issue.py events.json                    # Render diff as GitHub issue markdown
 uv run render_dashboard.py                            # Build flat-dashboard.html
 uv run scan_sold.py                                  # Scan for sold listings in numbering gaps
 uv run price_history.py                              # Summarize price adjustments
@@ -36,7 +35,6 @@ just typecheck    # Type checking with ty
 - `templates/` — Dashboard assets (`dashboard.html`, `styles.css`, `app.js`).
 - `price_history.py` — Price projection time series and delta calculations.
 - `scan_sold.py` — Probes numbering gaps for sold items omitted from search.
-- `format_issue.py` — Formats change diffs for GitHub issues.
 - `registry.json` / `sold_registry.json` — Tracked listing registries.
 - `history.log` — Append-only JSONL audit log of all detected changes.
 - `docs/` — Deep-dive architectural documentation.

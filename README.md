@@ -31,20 +31,19 @@ uv run scan_sold.py                # find sold offers omitted from the search pa
 ## Automation
 
 A GitHub Actions workflow (`.github/workflows/flat-sniffer.yml`) runs this
-weekly (Mondays, 08:00 UTC) and on manual trigger. When something changes, it
-opens a GitHub issue with the diff and commits the updated `registry.json` /
-`history.log` back to the repo. If a run fails outright (network error,
-corrupted state, or a suspicious/blocked scrape), it opens a separate
-"check failed" issue instead of failing silently.
+daily (08:00 UTC) and on manual trigger. It commits the updated `registry.json`,
+`history.log`, and `sold_registry.json` back to the repo, and builds and deploys
+the interactive dashboard to GitHub Pages. If a run fails outright (network error,
+corrupted state, or a suspicious/blocked scrape), it opens a "check failed"
+issue instead of failing silently.
 
 Each successful run also uploads a self-contained **flat-availability-dashboard**
-artifact. It opens on a concise "What changed" view and includes the current
+artifact. It opens on a concise overview of availability and includes the current
 inventory of flats, garage spaces, storage rooms, and parking places.
 
 ## Files
 
 - `flat_sniffer.py` — scraper + diff engine
-- `format_issue.py` — renders a diff as a GitHub issue body
 - `render_dashboard.py` — renders the human-friendly HTML dashboard
 - `scan_sold.py` — discovers sold offers in gaps of the public offer-number series
 - `registry.json` — current snapshot of all tracked listings
