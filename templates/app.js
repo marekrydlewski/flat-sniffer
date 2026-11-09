@@ -1,510 +1,759 @@
-    // --- Utility Helpers ---
-    function escapeHtml(str) {
-      if (str == null) return '';
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-    }
+// Świętego Michała · Interactive Dashboard App
+(function() {
+  'use strict';
 
-    function removeDiacritics(str) {
-      return str
-        ? String(str)
-            .replace(/[łŁ]/g, 'l')
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .toLowerCase()
-        : '';
-    }
+  // --- State ---
+  let allOffers = [];
+  let selectedCategory = 'Mieszkanie';
+  let histogramMode = 'total'; // 'total' | 'sqm'
+  let includeSoldInHist = false;
+  let selectedHistogramBin = null; // { min, max, label, isLast, isExact } or null
 
-    // --- Global Filter Functions & Stubs ---
-    window.setCategoryFilter = function(cat) {
-      if (window._catalogSetCategory) window._catalogSetCategory(cat);
-    };
-    window.setPriceFilter = function(filter) {
-      if (window._catalogSetPrice) window._catalogSetPrice(filter);
-    };
-    window.setStatusFilter = function(status) {
-      if (window._catalogSetStatus) window._catalogSetStatus(status);
-    };
-    window.resetAllFilters = function() {
-      if (window._catalogResetFilters) window._catalogResetFilters();
-    };
+  // Table filters & sorting
+  let catalogSearch = '';
+  let catalogStatusFilter = 'all'; // 'all' | 'available' | 'reserved' | 'sold'
+  let catalogRoomsFilter = 'all';  // 'all' | '2' | '3' | '4'
+  let catalogSpecialFilter = 'all'; // 'all' | 'drops'
+  let catalogShowSold = false;
+  let catalogSortCol = 'price';
+  let catalogSortDir = 'asc';
 
-    // --- Global Tab Switching ---
-    function switchTab(tabId) {
-      document.querySelectorAll('.tab-btn').forEach(btn => {
-        const isActive = btn.dataset.target === tabId;
-        btn.classList.toggle('active', isActive);
-        btn.setAttribute('aria-selected', isActive);
-      });
-      document.querySelectorAll('.tab-panel').forEach(panel => {
-        panel.classList.toggle('active', panel.id === tabId);
-      });
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+  // Timeline scope
+  let timelineScope = 'flats'; // 'flats' | 'all'
 
-    function filterCatalogByStatus(statusKey) {
-      switchTab('tab-catalog');
-      window.setStatusFilter(statusKey);
-    }
+  // --- Helpers ---
+  function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
 
-    function filterCatalogByPriceDrops() {
-      switchTab('tab-catalog');
-      window.setPriceFilter('drops');
-    }
+  function removeDiacritics(str) {
+    return str
+      ? String(str)
+          .replace(/[łŁ]/g, 'l')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase()
+      : '';
+  }
 
-    function filterCatalogByGroup(groupName) {
-      switchTab('tab-catalog');
-      const catMap = {
-        'Mieszkania': 'Mieszkanie',
-        'Parkowanie': 'Hala garażowa,Miejsce postojowe',
-        'Komórki lokatorskie': 'Komórka'
-      };
-      window.setCategoryFilter(catMap[groupName] || 'all');
-    }
+  function parseFloorNum(val) {
+    if (!val) return -1;
+    const s = String(val).toLowerCase();
+    if (s.includes('parter')) return 0;
+    const m = s.match(/\d+/);
+    return m ? parseInt(m[0], 10) : -1;
+  }
 
-    // --- Trend View Switcher ---
-    function switchTrendView(mode) {
-      document.querySelectorAll('.trend-toggle-group .pill-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.trendBtn === mode);
-      });
-      const weeksWrap = document.getElementById('trend-view-weeks');
-      const daysWrap = document.getElementById('trend-view-days');
-      if (weeksWrap && daysWrap) {
-        weeksWrap.classList.toggle('hidden', mode !== 'weeks');
-        daysWrap.classList.toggle('hidden', mode !== 'days');
+  function formatPrice(num) {
+    if (num == null || isNaN(num)) return '—';
+    return Math.round(num).toLocaleString('pl-PL') + ' zł';
+  }
+
+  // --- Initialization ---
+  function init() {
+    const rawDataEl = document.getElementById('offers-data');
+    if (rawDataEl) {
+      try {
+        allOffers = JSON.parse(rawDataEl.textContent || '[]');
+      } catch (err) {
+        console.error('Failed to parse offers data:', err);
       }
     }
 
-    // --- Keyboard Accessibility for KPI Cards ---
-    document.querySelectorAll('.clickable-card').forEach(card => {
-      card.addEventListener('keydown', e => {
+    initTheme();
+    initKeyboardAccessibility();
+    renderAll();
+  }
+
+  function initKeyboardAccessibility() {
+    document.querySelectorAll('.clickable[tabindex="0"]').forEach(el => {
+      el.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          card.click();
+          el.click();
         }
       });
     });
+  }
 
-    // --- Copy Offer Link ---
-    function copyOfferLink(event, explicitUrl) {
-      if (event) {
-        event.preventDefault();
-        event.stopPropagation();
-      }
-      const btn = event ? event.currentTarget : null;
-      const url = explicitUrl || (btn ? btn.closest('a')?.href : null);
-      if (!url || url === '#' || url === 'None') return;
+  function renderAll() {
+    updateCategoryTabs();
+    renderHistogram();
+    renderQuickFilters();
+    renderTable();
+    updateTimelineScope();
+  }
 
-      const finishCopy = () => {
-        if (btn) {
-          btn.textContent = '✓';
-          btn.classList.add('copied');
-          btn.title = 'Skopiowano link!';
-          setTimeout(() => {
-            btn.textContent = '🔗';
-            btn.classList.remove('copied');
-            btn.title = 'Kopiuj link do schowka';
-          }, 1800);
-        }
+  // --- Theme Toggle ---
+  function initTheme() {
+    const savedTheme = localStorage.getItem('sm_theme');
+    if (savedTheme) {
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    }
+    const themeBtn = document.getElementById('theme-toggle');
+    if (themeBtn) {
+      themeBtn.addEventListener('click', toggleTheme);
+    }
+  }
+
+  function toggleTheme() {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    let nextTheme = 'light';
+    if (!currentTheme) {
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      nextTheme = prefersDark ? 'light' : 'dark';
+    } else {
+      nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    }
+    document.documentElement.setAttribute('data-theme', nextTheme);
+    localStorage.setItem('sm_theme', nextTheme);
+  }
+
+  // --- Category Switcher ---
+  window.selectCategory = function(cat) {
+    if (selectedCategory === cat) return;
+    selectedCategory = cat;
+    selectedHistogramBin = null;
+    catalogSearch = '';
+    const searchInput = document.getElementById('table-search');
+    if (searchInput) searchInput.value = '';
+    const clearBtn = document.getElementById('search-clear-btn');
+    if (clearBtn) clearBtn.classList.add('hidden');
+
+    catalogStatusFilter = 'all';
+    catalogRoomsFilter = 'all';
+    catalogSpecialFilter = 'all';
+    catalogShowSold = false;
+    catalogSortCol = 'price';
+    catalogSortDir = 'asc';
+
+    renderAll();
+  };
+
+  function updateCategoryTabs() {
+    document.querySelectorAll('.cat-tab-btn').forEach(btn => {
+      const isMatch = btn.getAttribute('data-category') === selectedCategory;
+      btn.classList.toggle('active', isMatch);
+      btn.setAttribute('aria-selected', isMatch ? 'true' : 'false');
+    });
+
+    const titleEl = document.getElementById('catalog-title');
+    if (titleEl) {
+      const catNames = {
+        'Mieszkanie': 'Mieszkania',
+        'Hala garażowa': 'Hala garażowa (miejsca postojowe)',
+        'Komórka': 'Komórki lokatorskie',
+        'Miejsce postojowe': 'Miejsca postojowe naziemne'
       };
+      titleEl.textContent = '🏢 Tabela lokali: ' + (catNames[selectedCategory] || selectedCategory);
+    }
 
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(url).then(finishCopy).catch(() => {
-          fallbackCopy(url);
-          finishCopy();
+    const modeWrap = document.getElementById('hist-mode-wrap');
+    if (modeWrap) {
+      modeWrap.style.display = selectedCategory === 'Mieszkanie' ? 'flex' : 'none';
+    }
+  }
+
+  // --- Histogram Controls ---
+  window.setHistogramMode = function(mode) {
+    if (histogramMode === mode) return;
+    histogramMode = mode;
+    selectedHistogramBin = null;
+    document.getElementById('btn-mode-total')?.classList.toggle('active', mode === 'total');
+    document.getElementById('btn-mode-sqm')?.classList.toggle('active', mode === 'sqm');
+    renderHistogram();
+    renderTable();
+  };
+
+  window.toggleIncludeSold = function() {
+    const chk = document.getElementById('chk-include-sold');
+    includeSoldInHist = chk ? chk.checked : false;
+    renderHistogram();
+    renderTable();
+  };
+
+  window.clearHistogramSelection = function() {
+    selectedHistogramBin = null;
+    renderHistogram();
+    renderTable();
+  };
+
+  window.scrollToTable = function() {
+    const catalogEl = document.getElementById('catalog-section');
+    if (catalogEl) {
+      catalogEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  // --- Histogram Generation ---
+  function renderHistogram() {
+    const container = document.getElementById('histogram-container');
+    if (!container) return;
+
+    let items = allOffers.filter(o => o.cat === selectedCategory);
+    if (!includeSoldInHist) {
+      items = items.filter(o => o.kind !== 'sold');
+    }
+
+    if (items.length === 0) {
+      container.innerHTML = '<div class="empty-state">Brak danych cenowych dla wybranej konfiguracji.</div>';
+      updateDrilldownBar();
+      return;
+    }
+
+    let bins = [];
+
+    if (selectedCategory === 'Mieszkanie') {
+      if (histogramMode === 'total') {
+        const step = 50000;
+        const prices = items.map(o => o.price_num).filter(p => p && p > 0);
+        if (prices.length > 0) {
+          const minP = Math.floor(Math.min(...prices) / step) * step;
+          const maxP = Math.ceil(Math.max(...prices) / step) * step;
+          for (let b = minP; b < maxP; b += step) {
+            const bMin = b;
+            const bMax = b + step;
+            const isLast = bMax >= maxP;
+            const bItems = items.filter(o => {
+              if (o.price_num == null) return false;
+              return o.price_num >= bMin && (isLast ? o.price_num <= bMax : o.price_num < bMax);
+            });
+            if (bItems.length > 0) {
+              const label = `${Math.round(bMin / 1000)}k–${Math.round(bMax / 1000)}k zł`;
+              bins.push({ min: bMin, max: bMax, isLast: isLast, label: label, items: bItems });
+            }
+          }
+        }
+      } else {
+        // SQM mode for flats
+        const step = 250;
+        const sqms = items.map(o => (o.price_num && o.area_num) ? Math.round(o.price_num / o.area_num) : null).filter(Boolean);
+        if (sqms.length > 0) {
+          const minS = Math.floor(Math.min(...sqms) / step) * step;
+          const maxS = Math.ceil(Math.max(...sqms) / step) * step;
+          for (let b = minS; b < maxS; b += step) {
+            const bMin = b;
+            const bMax = b + step;
+            const isLast = bMax >= maxS;
+            const bItems = items.filter(o => {
+              const sqm = (o.price_num && o.area_num) ? (o.price_num / o.area_num) : null;
+              return sqm != null && sqm >= bMin && (isLast ? sqm <= bMax : sqm < bMax);
+            });
+            if (bItems.length > 0) {
+              const label = `${bMin.toLocaleString()}–${bMax.toLocaleString()} zł/m²`;
+              bins.push({ min: bMin, max: bMax, isLast: isLast, label: label, items: bItems });
+            }
+          }
+        }
+      }
+    } else {
+      // Discrete prices for garage / storage / parking
+      const priceMap = new Map();
+      items.forEach(o => {
+        const p = o.price_num || 0;
+        if (!priceMap.has(p)) priceMap.set(p, []);
+        priceMap.get(p).push(o);
+      });
+
+      const sortedPrices = Array.from(priceMap.keys()).sort((a, b) => a - b);
+      sortedPrices.forEach(p => {
+        const bItems = priceMap.get(p);
+        bins.push({
+          min: p,
+          max: p,
+          isExact: true,
+          label: formatPrice(p),
+          items: bItems
+        });
+      });
+    }
+
+    if (bins.length === 0) {
+      container.innerHTML = '<div class="empty-state">Brak danych cenowych.</div>';
+      updateDrilldownBar();
+      return;
+    }
+
+    const maxCount = Math.max(...bins.map(b => b.items.length), 1);
+
+    let chartHtml = '<div class="histogram-chart" role="region" aria-label="Histogram rozkładu cen">';
+    let labelsHtml = '<div class="hist-labels-row">';
+
+    bins.forEach((bin, idx) => {
+      const count = bin.items.length;
+      const heightPct = Math.max(Math.round((count / maxCount) * 100), 8);
+
+      const countAvail = bin.items.filter(o => o.kind === 'available').length;
+      const countRes = bin.items.filter(o => o.kind === 'reserved').length;
+      const countSold = bin.items.filter(o => o.kind === 'sold').length;
+
+      const pctAvail = (countAvail / count) * 100;
+      const pctRes = (countRes / count) * 100;
+      const pctSold = (countSold / count) * 100;
+
+      const isSelected = selectedHistogramBin && selectedHistogramBin.label === bin.label;
+      const activeCls = isSelected ? ' active' : '';
+
+      const tooltip = `${bin.label}: ${count} lokali (${countAvail} wolnych, ${countRes} rezerwacji, ${countSold} sprzedanych)`;
+
+      chartHtml += `
+        <div class="hist-col${activeCls}" data-bin-idx="${idx}" role="button" tabindex="0" aria-pressed="${isSelected ? 'true' : 'false'}" aria-label="${escapeHtml(tooltip)}" onclick="handleHistBarClick(${idx})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();handleHistBarClick(${idx});}" title="${escapeHtml(tooltip)}">
+          <span class="hist-bar-count">${count}</span>
+          <div class="hist-bar" style="height: ${heightPct}%;">
+            ${countSold > 0 ? `<div class="hist-seg hist-seg-sold" style="height: ${pctSold}%;"></div>` : ''}
+            ${countRes > 0 ? `<div class="hist-seg hist-seg-res" style="height: ${pctRes}%;"></div>` : ''}
+            ${countAvail > 0 ? `<div class="hist-seg hist-seg-avail" style="height: ${pctAvail}%;"></div>` : ''}
+          </div>
+        </div>
+      `;
+
+      labelsHtml += `
+        <div class="hist-label" title="${escapeHtml(bin.label)}">${escapeHtml(bin.label)}</div>
+      `;
+    });
+
+    chartHtml += '</div>';
+    labelsHtml += '</div>';
+
+    container.innerHTML = chartHtml + labelsHtml;
+
+    window._currentHistogramBins = bins;
+    updateDrilldownBar();
+  }
+
+  window.handleHistBarClick = function(idx) {
+    const bins = window._currentHistogramBins;
+    if (!bins || !bins[idx]) return;
+
+    const clickedBin = bins[idx];
+    if (selectedHistogramBin && selectedHistogramBin.label === clickedBin.label) {
+      selectedHistogramBin = null;
+    } else {
+      selectedHistogramBin = clickedBin;
+    }
+
+    renderHistogram();
+    renderTable();
+  };
+
+  function updateDrilldownBar() {
+    const bar = document.getElementById('drilldown-bar');
+    if (!bar) return;
+
+    if (!selectedHistogramBin) {
+      bar.classList.add('hidden');
+      return;
+    }
+
+    bar.classList.remove('hidden');
+    const labelEl = document.getElementById('drilldown-label');
+    const countEl = document.getElementById('drilldown-count');
+
+    if (labelEl) labelEl.textContent = selectedHistogramBin.label;
+    if (countEl) {
+      const items = selectedHistogramBin.items;
+      const countAvail = items.filter(o => o.kind === 'available').length;
+      const countRes = items.filter(o => o.kind === 'reserved').length;
+      countEl.textContent = `(${items.length} pozycji: ${countAvail} wolnych, ${countRes} rezerwacji)`;
+    }
+  }
+
+  // --- Quick Filter Pills ---
+  function renderQuickFilters() {
+    const container = document.getElementById('quick-filters');
+    if (!container) return;
+
+    let html = '';
+
+    const catOffers = allOffers.filter(o => o.cat === selectedCategory);
+    const countAvail = catOffers.filter(o => o.kind === 'available').length;
+    const countRes = catOffers.filter(o => o.kind === 'reserved').length;
+    const countSold = catOffers.filter(o => o.kind === 'sold').length;
+    const countDrops = catOffers.filter(o => o.has_drop).length;
+
+    html += `<button class="q-pill${catalogStatusFilter === 'all' && catalogSpecialFilter === 'all' && catalogRoomsFilter === 'all' ? ' active' : ''}" onclick="setCatalogFilter('all')">Wszystkie (${countAvail + countRes})</button>`;
+    html += `<button class="q-pill${catalogStatusFilter === 'available' ? ' active' : ''}" onclick="setCatalogFilter('status', 'available')">Wolne (${countAvail})</button>`;
+    if (countRes > 0) {
+      html += `<button class="q-pill${catalogStatusFilter === 'reserved' ? ' active' : ''}" onclick="setCatalogFilter('status', 'reserved')">Rezerwacje (${countRes})</button>`;
+    }
+
+    if (selectedCategory === 'Mieszkanie') {
+      const rooms2 = catOffers.filter(o => o.rooms === '2' && o.kind === 'available').length;
+      const rooms3 = catOffers.filter(o => o.rooms === '3' && o.kind === 'available').length;
+      const rooms4 = catOffers.filter(o => o.rooms === '4' && o.kind === 'available').length;
+
+      if (rooms2 > 0) html += `<button class="q-pill${catalogRoomsFilter === '2' ? ' active' : ''}" onclick="setCatalogFilter('rooms', '2')">2 pokoje (${rooms2})</button>`;
+      if (rooms3 > 0) html += `<button class="q-pill${catalogRoomsFilter === '3' ? ' active' : ''}" onclick="setCatalogFilter('rooms', '3')">3 pokoje (${rooms3})</button>`;
+      if (rooms4 > 0) html += `<button class="q-pill${catalogRoomsFilter === '4' ? ' active' : ''}" onclick="setCatalogFilter('rooms', '4')">4 pokoje (${rooms4})</button>`;
+
+      if (countDrops > 0) {
+        html += `<button class="q-pill${catalogSpecialFilter === 'drops' ? ' active' : ''}" onclick="setCatalogFilter('special', 'drops')">🔥 Obniżki cen (${countDrops})</button>`;
+      }
+    }
+
+    if (countSold > 0) {
+      html += `
+        <label class="checkbox-label show-sold-wrap">
+          <input type="checkbox" id="chk-show-sold" ${catalogShowSold ? 'checked' : ''} onchange="toggleShowSold()">
+          <span>Pokaż sprzedane (${countSold})</span>
+        </label>
+      `;
+    }
+
+    container.innerHTML = html;
+  }
+
+  window.setCatalogFilter = function(type, val) {
+    // If called from hero metrics or room chips, ensure category is Mieszkanie
+    if (selectedCategory !== 'Mieszkanie') {
+      selectedCategory = 'Mieszkanie';
+      updateCategoryTabs();
+      renderHistogram();
+    }
+
+    if (type === 'all') {
+      catalogStatusFilter = 'all';
+      catalogRoomsFilter = 'all';
+      catalogSpecialFilter = 'all';
+    } else if (type === 'status') {
+      catalogStatusFilter = catalogStatusFilter === val ? 'all' : val;
+    } else if (type === 'rooms') {
+      catalogRoomsFilter = catalogRoomsFilter === val ? 'all' : val;
+    } else if (type === 'special') {
+      catalogSpecialFilter = catalogSpecialFilter === val ? 'all' : val;
+    }
+
+    renderQuickFilters();
+    renderTable();
+    scrollToTable();
+  };
+
+  window.toggleShowSold = function() {
+    const chk = document.getElementById('chk-show-sold');
+    catalogShowSold = chk ? chk.checked : false;
+    renderTable();
+  };
+
+  // --- Search Input ---
+  window.handleSearchInput = function(val) {
+    catalogSearch = (val || '').trim();
+    const clearBtn = document.getElementById('search-clear-btn');
+    if (clearBtn) {
+      clearBtn.classList.toggle('hidden', !catalogSearch);
+    }
+    renderTable();
+  };
+
+  window.clearSearch = function() {
+    catalogSearch = '';
+    const input = document.getElementById('table-search');
+    if (input) input.value = '';
+    const clearBtn = document.getElementById('search-clear-btn');
+    if (clearBtn) clearBtn.classList.add('hidden');
+    renderTable();
+  };
+
+  window.resetAllCatalogFilters = function() {
+    catalogSearch = '';
+    const input = document.getElementById('table-search');
+    if (input) input.value = '';
+    const clearBtn = document.getElementById('search-clear-btn');
+    if (clearBtn) clearBtn.classList.add('hidden');
+
+    catalogStatusFilter = 'all';
+    catalogRoomsFilter = 'all';
+    catalogSpecialFilter = 'all';
+    catalogShowSold = false;
+    selectedHistogramBin = null;
+
+    renderHistogram();
+    renderQuickFilters();
+    renderTable();
+  };
+
+  // --- Table Sorting ---
+  window.sortTableBy = function(col) {
+    if (catalogSortCol === col) {
+      catalogSortDir = catalogSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      catalogSortCol = col;
+      catalogSortDir = 'asc';
+    }
+    renderTable();
+  };
+
+  // --- Table Rendering ---
+  function renderTable() {
+    const headEl = document.getElementById('data-table-head');
+    const bodyEl = document.getElementById('data-table-body');
+    const counterEl = document.getElementById('table-counter');
+    const chipsBarEl = document.getElementById('active-filter-chips');
+    const chipsContainerEl = document.getElementById('chips-container');
+
+    if (!headEl || !bodyEl) return;
+
+    let items = allOffers.filter(o => o.cat === selectedCategory);
+
+    // Status filter
+    if (catalogStatusFilter !== 'all') {
+      items = items.filter(o => o.kind === catalogStatusFilter);
+    } else if (!catalogShowSold) {
+      items = items.filter(o => o.kind !== 'sold');
+    }
+
+    // Rooms filter
+    if (catalogRoomsFilter !== 'all') {
+      items = items.filter(o => String(o.rooms).trim() === catalogRoomsFilter);
+    }
+
+    // Special filter (drops)
+    if (catalogSpecialFilter === 'drops') {
+      items = items.filter(o => o.has_drop);
+    }
+
+    // Histogram bin filter
+    if (selectedHistogramBin) {
+      if (selectedHistogramBin.isExact) {
+        items = items.filter(o => o.price_num === selectedHistogramBin.min);
+      } else if (histogramMode === 'total') {
+        items = items.filter(o => {
+          if (o.price_num == null) return false;
+          return o.price_num >= selectedHistogramBin.min &&
+            (selectedHistogramBin.isLast ? o.price_num <= selectedHistogramBin.max : o.price_num < selectedHistogramBin.max);
         });
       } else {
-        fallbackCopy(url);
-        finishCopy();
+        items = items.filter(o => {
+          const sqm = (o.price_num && o.area_num) ? (o.price_num / o.area_num) : null;
+          if (sqm == null) return false;
+          return sqm >= selectedHistogramBin.min &&
+            (selectedHistogramBin.isLast ? sqm <= selectedHistogramBin.max : sqm < selectedHistogramBin.max);
+        });
       }
     }
 
-    function fallbackCopy(text) {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.left = '-9999px';
-      document.body.appendChild(ta);
-      ta.select();
-      try { document.execCommand('copy'); } catch(e) {}
-      document.body.removeChild(ta);
-    }
-
-    // --- Timeline Grouping Switcher ---
-    function switchTimelineGrouping(mode) {
-      document.querySelectorAll('.group-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.timelineView === mode);
-      });
-      document.querySelectorAll('.timeline-view-panel').forEach(panel => {
-        panel.classList.toggle('active', panel.id === 'timeline-view-' + mode);
+    // Search query filter (with diacritics support)
+    if (catalogSearch) {
+      const normSearch = removeDiacritics(catalogSearch);
+      items = items.filter(o => {
+        const text = removeDiacritics([
+          o.unit,
+          o.cat,
+          o.rooms ? o.rooms + ' pok' : '',
+          o.floor || '',
+          o.staircase ? 'kl ' + o.staircase : '',
+          o.extras || '',
+          o.area ? o.area + ' m2' : '',
+          o.price || '',
+          o.status || ''
+        ].join(' '));
+        return text.includes(normSearch);
       });
     }
 
-    // --- Theme Toggle ---
-    const themeBtn = document.getElementById('theme-toggle');
-    function applyTheme(theme) {
-      document.documentElement.setAttribute('data-theme', theme);
-      try { localStorage.setItem('theme', theme); } catch(e) {}
-      themeBtn.textContent = theme === 'dark' ? '☀️' : '🌓';
-    }
-    const savedTheme = (() => {
-      try { return localStorage.getItem('theme'); } catch(e) { return null; }
-    })();
-    if (savedTheme) applyTheme(savedTheme);
-    themeBtn.addEventListener('click', () => {
-      const current = document.documentElement.getAttribute('data-theme') ||
-        (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-      applyTheme(current === 'dark' ? 'light' : 'dark');
+    // Sort items
+    items.sort((a, b) => {
+      let vA, vB;
+      if (catalogSortCol === 'unit') {
+        vA = a.unit || '';
+        vB = b.unit || '';
+        return catalogSortDir === 'asc' ? vA.localeCompare(vB, undefined, { numeric: true }) : vB.localeCompare(vA, undefined, { numeric: true });
+      } else if (catalogSortCol === 'price') {
+        vA = a.price_num || 0;
+        vB = b.price_num || 0;
+      } else if (catalogSortCol === 'area') {
+        vA = a.area_num || 0;
+        vB = b.area_num || 0;
+      } else if (catalogSortCol === 'rooms') {
+        vA = parseInt(a.rooms, 10) || 0;
+        vB = parseInt(b.rooms, 10) || 0;
+      } else if (catalogSortCol === 'floor') {
+        vA = parseFloorNum(a.floor);
+        vB = parseFloorNum(b.floor);
+      } else if (catalogSortCol === 'price_m2') {
+        vA = (a.price_num && a.area_num) ? (a.price_num / a.area_num) : 0;
+        vB = (b.price_num && b.area_num) ? (b.price_num / b.area_num) : 0;
+      } else if (catalogSortCol === 'status') {
+        vA = a.kind || '';
+        vB = b.kind || '';
+        return catalogSortDir === 'asc' ? vA.localeCompare(vB) : vB.localeCompare(vA);
+      }
+      return catalogSortDir === 'asc' ? vA - vB : vB - vA;
     });
 
-    // --- Timeline Event Type Filtering ---
-    document.querySelectorAll('#timeline-event-filters .pill-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('#timeline-event-filters .pill-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        const filterType = btn.dataset.timelineType;
+    // Update Counter
+    if (counterEl) {
+      counterEl.textContent = `Wyświetlono ${items.length} lokali`;
+    }
 
-        document.querySelectorAll('.event-item').forEach(item => {
-          if (filterType === 'all' || item.dataset.eventType === filterType) {
-            item.style.display = '';
-          } else {
-            item.style.display = 'none';
-          }
-        });
+    // Active Filter Chips
+    let activeChips = [];
+    if (selectedHistogramBin) {
+      activeChips.push({ label: `Przedział: ${selectedHistogramBin.label}`, clear: () => clearHistogramSelection() });
+    }
+    if (catalogStatusFilter !== 'all') {
+      const labels = { available: 'Tylko wolne', reserved: 'Tylko rezerwacje', sold: 'Tylko sprzedane' };
+      activeChips.push({ label: labels[catalogStatusFilter] || catalogStatusFilter, clear: () => { catalogStatusFilter = 'all'; renderQuickFilters(); renderTable(); } });
+    }
+    if (catalogRoomsFilter !== 'all') {
+      activeChips.push({ label: `${catalogRoomsFilter} pokoje`, clear: () => { catalogRoomsFilter = 'all'; renderQuickFilters(); renderTable(); } });
+    }
+    if (catalogSpecialFilter === 'drops') {
+      activeChips.push({ label: 'Tylko obniżki cen', clear: () => { catalogSpecialFilter = 'all'; renderQuickFilters(); renderTable(); } });
+    }
+    if (catalogSearch) {
+      activeChips.push({ label: `Szukaj: "${catalogSearch}"`, clear: () => clearSearch() });
+    }
 
-        // Open timeline groups that have visible items
-        document.querySelectorAll('.timeline-group').forEach(group => {
-          const hasVisible = Array.from(group.querySelectorAll('.event-item')).some(i => i.style.display !== 'none');
-          if (!hasVisible && filterType !== 'all') {
-            group.style.display = 'none';
-          } else {
-            group.style.display = '';
-            if (filterType !== 'all' && hasVisible) group.open = true;
+    if (chipsBarEl && chipsContainerEl) {
+      if (activeChips.length > 0) {
+        chipsBarEl.classList.remove('hidden');
+        chipsContainerEl.innerHTML = activeChips.map((chip, i) => `
+          <span class="filter-chip-tag">
+            ${escapeHtml(chip.label)}
+            <button type="button" onclick="window._clearChip(${i})" title="Usuń ten filtr">✕</button>
+          </span>
+        `).join('');
+        window._activeChips = activeChips;
+        window._clearChip = function(idx) {
+          if (window._activeChips && window._activeChips[idx]) {
+            window._activeChips[idx].clear();
           }
-        });
-      });
+        };
+      } else {
+        chipsBarEl.classList.add('hidden');
+      }
+    }
+
+    // Render Table Header with full keyboard accessibility
+    let theadHtml = '<tr>';
+    const sortIcon = (col) => {
+      if (catalogSortCol !== col) return '<span class="sort-icon" aria-hidden="true">⇅</span>';
+      return `<span class="sort-icon" aria-hidden="true">${catalogSortDir === 'asc' ? '▲' : '▼'}</span>`;
+    };
+    const th = (col, label) => {
+      const isSorted = catalogSortCol === col;
+      const ariaSort = isSorted ? (catalogSortDir === 'asc' ? 'ascending' : 'descending') : 'none';
+      return `<th class="sortable${isSorted ? ' sorted' : ''}" role="columnheader" tabindex="0" aria-sort="${ariaSort}" onclick="sortTableBy('${col}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortTableBy('${col}');}">${label} ${sortIcon(col)}</th>`;
+    };
+
+    if (selectedCategory === 'Mieszkanie') {
+      theadHtml += th('unit', 'Nr lokalu');
+      theadHtml += th('rooms', 'Pokoje');
+      theadHtml += th('floor', 'Piętro');
+      theadHtml += th('area', 'Metraż');
+      theadHtml += th('price', 'Cena całkowita');
+      theadHtml += th('price_m2', 'Cena za m²');
+      theadHtml += th('status', 'Status');
+      theadHtml += '<th role="columnheader">Karta dewelopera</th>';
+    } else if (selectedCategory === 'Komórka') {
+      theadHtml += th('unit', 'Nr komórki');
+      theadHtml += th('area', 'Metraż');
+      theadHtml += th('price', 'Cena');
+      theadHtml += th('status', 'Status');
+      theadHtml += '<th role="columnheader">Karta dewelopera</th>';
+    } else {
+      theadHtml += th('unit', 'Nr miejsca');
+      theadHtml += th('price', 'Cena');
+      theadHtml += th('status', 'Status');
+      theadHtml += '<th role="columnheader">Karta dewelopera</th>';
+    }
+    theadHtml += '</tr>';
+    headEl.innerHTML = theadHtml;
+
+    // Render Table Body
+    if (items.length === 0) {
+      bodyEl.innerHTML = `<tr><td colspan="8" class="table-empty-state">Brak lokali spełniających wybrane kryteria wyszukiwania.</td></tr>`;
+      return;
+    }
+
+    let tbodyHtml = '';
+    items.forEach(o => {
+      const kind = o.kind || 'available';
+      const statusLabel = kind === 'available' ? 'Wolne' : (kind === 'reserved' ? 'Rezerwacja' : 'Sprzedane');
+      const url = o.url && o.url !== '#' ? o.url : null;
+
+      let priceHtml = escapeHtml(o.price || 'Cena niedostępna');
+      if (o.has_drop && o.delta_amt) {
+        const tooltip = o.history_tooltip ? o.history_tooltip : 'Obniżka względem ceny pierwotnej';
+        priceHtml += ` <span class="price-drop-badge" title="${escapeHtml(tooltip)}">↓ -${Math.abs(o.delta_amt).toLocaleString()} zł</span>`;
+      }
+
+      let priceM2Html = '—';
+      if (o.price_num && o.area_num) {
+        priceM2Html = Math.round(o.price_num / o.area_num).toLocaleString('pl-PL') + ' zł/m²';
+      }
+
+      tbodyHtml += '<tr>';
+
+      if (selectedCategory === 'Mieszkanie') {
+        tbodyHtml += `<td class="td-unit"><span class="unit-status-dot dot-${kind}" aria-hidden="true"></span><strong>${escapeHtml(o.unit)}</strong></td>`;
+        tbodyHtml += `<td>${escapeHtml(o.rooms || '—')} pok.</td>`;
+        tbodyHtml += `<td>${escapeHtml(o.floor || '—')}</td>`;
+        tbodyHtml += `<td>${escapeHtml(o.area ? o.area + ' m²' : '—')}</td>`;
+        tbodyHtml += `<td class="price-cell">${priceHtml}</td>`;
+        tbodyHtml += `<td class="price-m2-cell">${priceM2Html}</td>`;
+        tbodyHtml += `<td><span class="status-pill pill-${kind}">${statusLabel}</span></td>`;
+      } else if (selectedCategory === 'Komórka') {
+        tbodyHtml += `<td class="td-unit"><span class="unit-status-dot dot-${kind}" aria-hidden="true"></span><strong>${escapeHtml(o.unit)}</strong></td>`;
+        tbodyHtml += `<td>${escapeHtml(o.area ? o.area + ' m²' : '—')}</td>`;
+        tbodyHtml += `<td class="price-cell">${priceHtml}</td>`;
+        tbodyHtml += `<td><span class="status-pill pill-${kind}">${statusLabel}</span></td>`;
+      } else {
+        tbodyHtml += `<td class="td-unit"><span class="unit-status-dot dot-${kind}" aria-hidden="true"></span><strong>${escapeHtml(o.unit)}</strong></td>`;
+        tbodyHtml += `<td class="price-cell">${priceHtml}</td>`;
+        tbodyHtml += `<td><span class="status-pill pill-${kind}">${statusLabel}</span></td>`;
+      }
+
+      tbodyHtml += `<td>${url ? `<a class="table-btn" href="${escapeHtml(url)}" target="_blank" rel="noreferrer">Karta ↗</a>` : '—'}</td>`;
+      tbodyHtml += '</tr>';
     });
 
-    // --- Catalog Live Search, Filter & Infinite / Chunking Render ---
-    (function() {
-      const rawOffers = JSON.parse(document.getElementById('offers-data').textContent);
-      const grid = document.getElementById('catalog-grid');
-      const searchInput = document.getElementById('catalog-search');
-      const searchClearBtn = document.getElementById('search-clear-btn');
-      const sortSelect = document.getElementById('catalog-sort');
-      const loadMoreBtn = document.getElementById('load-more-btn');
-      const paginationWrap = document.getElementById('pagination-wrap');
-      const visibleCountEl = document.getElementById('visible-count');
-      const totalCountEl = document.getElementById('total-count');
-      const viewModeBtn = document.getElementById('view-mode-toggle');
-      const activeFiltersBar = document.getElementById('active-filters-bar');
-      const activeFiltersCountEl = document.getElementById('active-filters-count');
-      const activeFilterTagsEl = document.getElementById('active-filter-tags');
-      const resetFiltersBtn = document.getElementById('reset-filters-btn');
+    bodyEl.innerHTML = tbodyHtml;
+  }
 
-      let currentCat = 'all';
-      let currentStatus = 'all';
-      let currentPriceFilter = 'all';
-      let currentQuery = '';
-      let currentSort = 'default';
-      let isCompact = false;
+  // --- Timeline Scope (Block 2) ---
+  window.setTimelineScope = function(scope) {
+    timelineScope = scope;
+    document.querySelectorAll('.timeline-scope-toggle .pill-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-timeline-scope') === scope);
+    });
+    updateTimelineScope();
+  };
 
-      const PAGE_SIZE = 32;
-      let displayedCount = PAGE_SIZE;
+  function updateTimelineScope() {
+    const isFlatsOnly = timelineScope === 'flats';
 
-      viewModeBtn.addEventListener('click', () => {
-        isCompact = !isCompact;
-        grid.classList.toggle('compact-mode', isCompact);
-        viewModeBtn.textContent = isCompact ? 'Widok: Lista' : 'Widok: Kafelki';
-      });
-
-      function updateActiveFilters() {
-        const chips = [];
-        if (currentPriceFilter === 'drops') {
-          chips.push({ text: '🔥 Obniżki cen', action: "setPriceFilter('all')" });
-        }
-        if (currentCat !== 'all') {
-          const catMap = {
-            'Mieszkanie': 'Mieszkania',
-            'Hala garażowa,Miejsce postojowe': 'Parkowanie',
-            'Komórka': 'Komórki'
-          };
-          chips.push({ text: catMap[currentCat] || currentCat, action: "setCategoryFilter('all')" });
-        }
-        if (currentStatus !== 'all') {
-          const statusMap = {
-            'available': 'Wolne',
-            'reserved': 'Rezerwacja',
-            'sold': 'Sprzedane'
-          };
-          chips.push({ text: statusMap[currentStatus] || currentStatus, action: "setStatusFilter('all')" });
-        }
-        if (currentQuery) {
-          chips.push({ text: `"${currentQuery}"`, action: "clearSearchFilter()" });
-        }
-
-        if (chips.length > 0) {
-          activeFiltersBar.classList.remove('hidden');
-          activeFiltersCountEl.textContent = chips.length;
-          activeFilterTagsEl.innerHTML = chips.map(c =>
-            `<button type="button" class="active-filter-chip" onclick="${c.action}" title="Usuń ten filtr">${escapeHtml(c.text)} ✕</button>`
-          ).join('');
-        } else {
-          activeFiltersBar.classList.add('hidden');
-        }
-
-        if (searchClearBtn) {
-          searchClearBtn.classList.toggle('hidden', !(searchInput && searchInput.value));
-        }
+    // Toggle entire week cards if they contain no flats
+    document.querySelectorAll('.week-card').forEach(card => {
+      const hasFlats = card.getAttribute('data-has-flats') === 'true';
+      if (isFlatsOnly && !hasFlats) {
+        card.classList.add('hidden-by-scope');
+      } else {
+        card.classList.remove('hidden-by-scope');
       }
+    });
 
-      function filterAndSortOffers() {
-        let list = rawOffers.filter(item => {
-          if (currentPriceFilter === 'drops' && !item.has_drop) {
-            return false;
-          }
-          if (currentCat !== 'all') {
-            const allowed = currentCat.split(',');
-            if (!allowed.includes(item.cat)) return false;
-          }
-          if (currentStatus !== 'all' && item.kind !== currentStatus) {
-            return false;
-          }
-          if (currentQuery) {
-            const q = removeDiacritics(currentQuery);
-            const text = removeDiacritics(
-              `${item.cat} ${item.unit} ${item.group} ${item.price} ${item.area} ${item.rooms} ${item.floor} ${item.staircase || ''} ${item.extras || ''} ${item.has_drop ? 'obnizka rabat taniej' : ''}`
-            );
-            if (!text.includes(q)) return false;
-          }
-          return true;
-        });
-
-        if (currentSort === 'drop-desc') {
-          list.sort((a, b) => {
-            if (a.has_drop && !b.has_drop) return -1;
-            if (!a.has_drop && b.has_drop) return 1;
-            return (a.delta_amt || 0) - (b.delta_amt || 0);
-          });
-        } else if (currentSort === 'drop-pct-desc') {
-          list.sort((a, b) => {
-            if (a.has_drop && !b.has_drop) return -1;
-            if (!a.has_drop && b.has_drop) return 1;
-            return (a.delta_pct || 0) - (b.delta_pct || 0);
-          });
-        } else if (currentSort === 'price-asc') {
-          list.sort((a, b) => {
-            if (a.price_num == null && b.price_num == null) return 0;
-            if (a.price_num == null) return 1;
-            if (b.price_num == null) return -1;
-            return a.price_num - b.price_num;
-          });
-        } else if (currentSort === 'price-desc') {
-          list.sort((a, b) => {
-            if (a.price_num == null && b.price_num == null) return 0;
-            if (a.price_num == null) return 1;
-            if (b.price_num == null) return -1;
-            return b.price_num - a.price_num;
-          });
-        } else if (currentSort === 'area-desc') {
-          list.sort((a, b) => {
-            if (a.area_num == null && b.area_num == null) return 0;
-            if (a.area_num == null) return 1;
-            if (b.area_num == null) return -1;
-            return b.area_num - a.area_num;
-          });
-        } else if (currentSort === 'area-asc') {
-          list.sort((a, b) => {
-            if (a.area_num == null && b.area_num == null) return 0;
-            if (a.area_num == null) return 1;
-            if (b.area_num == null) return -1;
-            return a.area_num - b.area_num;
-          });
-        } else if (currentSort === 'unit-asc') {
-          list.sort((a, b) => (a.cat + a.unit).localeCompare(b.cat + b.unit, undefined, { numeric: true }));
-        }
-
-        return list;
+    // Toggle individual event rows within visible cards
+    document.querySelectorAll('.week-event-row').forEach(row => {
+      const cat = row.getAttribute('data-cat');
+      if (isFlatsOnly && cat !== 'Mieszkanie') {
+        row.classList.add('hidden-by-scope');
+      } else {
+        row.classList.remove('hidden-by-scope');
       }
+    });
+  }
 
-      function renderCatalog(reset = false) {
-        if (reset) displayedCount = PAGE_SIZE;
-        updateActiveFilters();
-        const filtered = filterAndSortOffers();
-        totalCountEl.textContent = filtered.length;
-
-        const slice = filtered.slice(0, displayedCount);
-        visibleCountEl.textContent = slice.length;
-
-        if (slice.length === 0) {
-          grid.innerHTML = '<div class="empty-state empty-state-full">Brak ofert spełniających kryteria.</div>';
-          paginationWrap.classList.add('hidden');
-          return;
-        }
-
-        grid.innerHTML = slice.map(offer => {
-          const metaParts = [];
-          if (offer.area) metaParts.push(escapeHtml(offer.area) + ' m²');
-          if (offer.rooms) metaParts.push(escapeHtml(offer.rooms) + ' pok.');
-          if (offer.floor) metaParts.push(escapeHtml(offer.floor));
-          if (offer.staircase) metaParts.push('kl. ' + escapeHtml(offer.staircase));
-          const metaText = metaParts.join(' · ') || escapeHtml(offer.group);
-          const statusLabels = { available: 'Wolne', reserved: 'Rezerwacja', sold: 'Sprzedane', unavailable: 'Niedostępne' };
-          const label = statusLabels[offer.kind] || escapeHtml(offer.status);
-
-          let priceContent = '';
-          if (offer.has_drop || offer.has_rise) {
-            const isDrop = offer.has_drop;
-            const deltaStr = Math.abs(offer.delta_amt).toLocaleString('pl-PL');
-            const pillCls = isDrop ? 'price-drop-pill' : 'price-rise-pill';
-            const sign = isDrop ? '↓ -' : '↑ +';
-            const pctStr = offer.delta_pct != null ? Math.abs(offer.delta_pct).toFixed(1) : '';
-            const tooltipAttr = offer.history_tooltip ? ` title="${escapeHtml(offer.history_tooltip)}"` : '';
-            priceContent = `
-              <div class="card-price-col">
-                <div class="card-price-topline">
-                  <span class="card-old-price">${escapeHtml(offer.initial_price)}</span>
-                  <span class="${pillCls}"${tooltipAttr}>${sign}${deltaStr} zł (${pctStr}%)</span>
-                </div>
-                <strong class="card-price">${escapeHtml(offer.price)}</strong>
-              </div>`;
-          } else if (!offer.price && offer.last_known_price) {
-            priceContent = `
-              <div class="card-price-col">
-                <strong class="card-price price-muted">Cena ukryta</strong>
-                <span class="card-last-known">ostatnio: ${escapeHtml(offer.last_known_price)}</span>
-              </div>`;
-          } else {
-            priceContent = `<strong class="card-price">${escapeHtml(offer.price || 'Cena niedostępna')}</strong>`;
-          }
-
-          const recentBadge = offer.recent
-            ? '<span class="badge-recent-change" title="Pozycja zmieniła się w ostatnim sprawdzeniu">✦ Ostatnia zmiana</span>'
-            : '';
-          const copyBtn = `<button class="card-copy-btn" type="button" title="Kopiuj link do schowka" onclick="copyOfferLink(event)">🔗</button>`;
-
-          return `<a class="flat-card status-border-${escapeHtml(offer.kind)}" href="${escapeHtml(offer.url)}" target="_blank" rel="noreferrer">
-            <div class="card-header">
-              <div class="card-title-wrap">
-                <span class="status-dot dot-${escapeHtml(offer.kind)}" aria-hidden="true"></span>
-                <span class="card-unit">${escapeHtml(offer.cat)} ${escapeHtml(offer.unit)}</span>
-                ${recentBadge}
-              </div>
-              <div class="card-header-actions">
-                ${copyBtn}
-                <span class="status-pill pill-${escapeHtml(offer.kind)}">${escapeHtml(label)}</span>
-              </div>
-            </div>
-            <div class="card-body">
-              <span class="card-meta">${metaText}</span>
-              <div class="card-price-row">
-                ${priceContent}
-                <span class="card-link-icon" aria-hidden="true">↗</span>
-              </div>
-            </div>
-          </a>`;
-        }).join('');
-
-        paginationWrap.classList.toggle('hidden', displayedCount >= filtered.length);
-      }
-
-      loadMoreBtn.addEventListener('click', () => {
-        displayedCount += PAGE_SIZE;
-        renderCatalog(false);
-      });
-
-      let debounceTimer;
-      searchInput.addEventListener('input', e => {
-        if (searchClearBtn) {
-          searchClearBtn.classList.toggle('hidden', !e.target.value);
-        }
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-          currentQuery = e.target.value.trim();
-          renderCatalog(true);
-        }, 180);
-      });
-
-      if (searchClearBtn) {
-        searchClearBtn.addEventListener('click', () => {
-          searchInput.value = '';
-          currentQuery = '';
-          searchClearBtn.classList.add('hidden');
-          renderCatalog(true);
-          searchInput.focus();
-        });
-      }
-
-      sortSelect.addEventListener('change', e => {
-        currentSort = e.target.value;
-        renderCatalog(true);
-      });
-
-      window._catalogSetCategory = function(cat) {
-        currentCat = cat || 'all';
-        document.querySelectorAll('#category-filters .pill-btn').forEach(b => {
-          const val = b.getAttribute('data-cat-filter') || b.dataset.catFilter;
-          b.classList.toggle('active', val === currentCat);
-        });
-        renderCatalog(true);
-      };
-
-      window._catalogSetPrice = function(filter) {
-        currentPriceFilter = filter || 'all';
-        document.querySelectorAll('#price-filters .pill-btn').forEach(b => {
-          const val = b.getAttribute('data-price-filter') || b.dataset.priceFilter;
-          b.classList.toggle('active', val === currentPriceFilter);
-        });
-        renderCatalog(true);
-      };
-
-      window._catalogSetStatus = function(status) {
-        currentStatus = status || 'all';
-        document.querySelectorAll('#status-filters .pill-btn').forEach(b => {
-          const val = b.getAttribute('data-status-filter') || b.dataset.statusFilter;
-          b.classList.toggle('active', val === currentStatus);
-        });
-        renderCatalog(true);
-      };
-
-      window._catalogResetFilters = function() {
-        currentPriceFilter = 'all';
-        currentCat = 'all';
-        currentStatus = 'all';
-        currentQuery = '';
-        currentSort = 'default';
-
-        document.querySelectorAll('#price-filters .pill-btn').forEach(b => {
-          b.classList.toggle('active', (b.getAttribute('data-price-filter') || b.dataset.priceFilter) === 'all');
-        });
-        document.querySelectorAll('#category-filters .pill-btn').forEach(b => {
-          b.classList.toggle('active', (b.getAttribute('data-cat-filter') || b.dataset.catFilter) === 'all');
-        });
-        document.querySelectorAll('#status-filters .pill-btn').forEach(b => {
-          b.classList.toggle('active', (b.getAttribute('data-status-filter') || b.dataset.statusFilter) === 'all');
-        });
-
-        if (searchInput) searchInput.value = '';
-        if (searchClearBtn) searchClearBtn.classList.add('hidden');
-        if (sortSelect) sortSelect.value = 'default';
-
-        renderCatalog(true);
-      };
-
-      window.clearSearchFilter = function() {
-        if (searchInput) searchInput.value = '';
-        currentQuery = '';
-        if (searchClearBtn) searchClearBtn.classList.add('hidden');
-        renderCatalog(true);
-      };
-
-      if (resetFiltersBtn) {
-        resetFiltersBtn.addEventListener('click', () => window.resetAllFilters());
-      }
-
-      renderCatalog(true);
-    })();
+  // Run on DOM ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
