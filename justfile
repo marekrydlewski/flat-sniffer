@@ -14,3 +14,13 @@ test:
     uv run python -m unittest discover tests
 
 check: lint fmt-check typecheck test
+
+dashboard:
+    uv run render_dashboard.py
+
+wt-new name:
+    git fetch origin main
+    git worktree add "$$(git rev-parse --git-common-dir)/../.worktrees/{{name}}" -b {{name}} origin/main
+
+wt-clean:
+    git worktree prune
