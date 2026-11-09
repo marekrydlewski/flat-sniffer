@@ -163,6 +163,15 @@ def fetch_sold(
     return res
 
 
+def active_offer_indices(registry: dict) -> tuple[set[str], set[tuple[str, str]]]:
+    """Return set of active URLs and set of active (category, unit) pairs."""
+    urls = {offer["url"] for offer in registry.values() if offer.get("url")}
+    keys = {
+        (offer["category"], offer["unit"]) for offer in registry.values() if offer.get("category") and offer.get("unit")
+    }
+    return urls, keys
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--registry", default="registry.json")
@@ -184,8 +193,7 @@ def main() -> None:
         else []
     )
 
-    active_urls = {offer["url"] for offer in registry.values()}
-    active_keys = {(offer.get("category"), offer.get("unit")) for offer in registry.values()}
+    active_urls, active_keys = active_offer_indices(registry)
     probe_set = urls_to_probe(registry, previous, history=history, refresh_all=args.refresh_all)
 
     # Retain already complete sold records that don't need network probing

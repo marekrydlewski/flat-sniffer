@@ -605,15 +605,67 @@ class TestTemplatesIntegrity(unittest.TestCase):
         from pathlib import Path
 
         node_path = shutil.which("node")
-        if node_path:
-            templates_dir = Path(__file__).resolve().parent.parent / "templates"
-            res = subprocess.run(
-                [node_path, "--check", str(templates_dir / "app.js")],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            self.assertEqual(res.returncode, 0, f"app.js syntax error: {res.stderr}")
+        if not node_path:
+            self.skipTest("node is not installed")
+
+        templates_dir = Path(__file__).resolve().parent.parent / "templates"
+        res = subprocess.run(
+            [node_path, "--check", str(templates_dir / "app.js")],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res.returncode, 0, f"app.js syntax error: {res.stderr}")
+
+
+class TestScanSoldDeduplication(unittest.TestCase):
+    def test_active_offer_indices(self):
+        from scan_sold import active_offer_indices
+
+        registry = {
+            "https://example.com/flat1": {"url": "https://example.com/flat1", "category": "Mieszkanie", "unit": "A.1"},
+            "https://example.com/garage1": {"url": "https://example.com/garage1", "category": "Garaż", "unit": "G-01"},
+            "https://example.com/incomplete": {"url": "https://example.com/incomplete"},
+        }
+        urls, keys = active_offer_indices(registry)
+        self.assertEqual(
+            urls, {"https://example.com/flat1", "https://example.com/garage1", "https://example.com/incomplete"}
+        )
+        self.assertEqual(keys, {("Mieszkanie", "A.1"), ("Garaż", "G-01")})
+
+    def test_retained_sold_omits_relisted_active(self):
+        from scan_sold import active_offer_indices
+
+        registry = {
+            "https://example.com/new-flat-url": {
+                "url": "https://example.com/new-flat-url",
+                "category": "Mieszkanie",
+                "unit": "A.1",
+                "status": "Dostępne",
+            }
+        }
+        active_urls, active_keys = active_offer_indices(registry)
+        previous = {
+            "https://example.com/old-sold-url": {
+                "url": "https://example.com/old-sold-url",
+                "category": "Mieszkanie",
+                "unit": "A.1",
+                "status": "Sprzedane",
+            },
+            "https://example.com/still-sold-url": {
+                "url": "https://example.com/still-sold-url",
+                "category": "Mieszkanie",
+                "unit": "B.2",
+                "status": "Sprzedane",
+            },
+        }
+        retained = [
+            offer
+            for url, offer in previous.items()
+            if url not in active_urls and (offer.get("category"), offer.get("unit")) not in active_keys
+        ]
+        self.assertEqual(len(retained), 1)
+        self.assertEqual(retained[0]["unit"], "B.2")
 
 
 if __name__ == "__main__":
