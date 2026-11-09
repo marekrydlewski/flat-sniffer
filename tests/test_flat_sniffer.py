@@ -284,7 +284,6 @@ class TestCandidatesGapScanning(unittest.TestCase):
             "1": {"category": "Mieszkanie", "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A1-1"},
             "3": {"category": "Mieszkanie", "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A1-3"},
         }
-        # SM2-A1-2 is a gap. If it is already in previous with price and area, it should NOT be probed.
         previous: dict[str, dict[str, str | None]] = {
             "https://swietegomichala.pl/pl/mieszkanie/SM2-A1-2": {
                 "category": "Mieszkanie",
@@ -292,16 +291,34 @@ class TestCandidatesGapScanning(unittest.TestCase):
                 "status": "Sprzedane",
                 "price": "500 000 zł",
                 "area_m2": "40,0",
+                "price_per_m2": "12 500 zł / m²",
                 "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A1-2",
             }
         }
         to_probe = urls_to_probe(registry, previous)
         self.assertEqual(len(to_probe), 0)
 
-        # If price is missing, it SHOULD be probed.
+        # refresh_all=True forces probing all candidates
+        to_probe_all = urls_to_probe(registry, previous, refresh_all=True)
+        self.assertIn("https://swietegomichala.pl/pl/mieszkanie/SM2-A1-2", to_probe_all)
+
+        # If price is missing, it SHOULD be probed
         previous["https://swietegomichala.pl/pl/mieszkanie/SM2-A1-2"]["price"] = None
         to_probe = urls_to_probe(registry, previous)
         self.assertIn("https://swietegomichala.pl/pl/mieszkanie/SM2-A1-2", to_probe)
+
+        # Non-flat (Hala garażowa) with price and no area does not need area/price_per_m2
+        previous_garage: dict[str, dict[str, str | None]] = {
+            "https://swietegomichala.pl/pl/mieszkanie/SM2-A1-2": {
+                "category": "Hala garażowa",
+                "unit": "2",
+                "status": "Sprzedane",
+                "price": "40 000 zł",
+                "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A1-2",
+            }
+        }
+        to_probe_garage = urls_to_probe(registry, previous_garage)
+        self.assertEqual(len(to_probe_garage), 0)
 
 
 class TestSoldOfferMetadataParsing(unittest.TestCase):

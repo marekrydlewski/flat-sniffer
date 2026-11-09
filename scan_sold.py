@@ -7,6 +7,7 @@
 import argparse
 import json
 import re
+import sys
 import unicodedata
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
@@ -55,23 +56,21 @@ def candidates(registry: dict, previous: dict | None = None) -> set[str]:
     return result
 
 
-def urls_to_probe(registry: dict, previous: dict, refresh_all: bool = False) -> set[str]:
+def urls_to_probe(registry: dict, previous: dict | None = None, refresh_all: bool = False) -> set[str]:
     """Determine which candidate URLs need network probing, skipping already complete records."""
-    active_urls = {offer["url"] for offer in registry.values()}
+    all_candidates = candidates(registry, previous)
     if refresh_all:
-        return candidates(registry, previous) - active_urls
+        return all_candidates
 
-    gaps = candidates(registry) - active_urls
+    prev_map = previous or {}
     to_probe = set()
-    for url in gaps:
-        prev = previous.get(url)
-        if not prev or not prev.get("price") or (prev.get("category") == "Mieszkanie" and not prev.get("area_m2")):
-            to_probe.add(url)
-
-    for url, prev in previous.items():
-        if url in active_urls:
-            continue
-        if not prev.get("price") or (prev.get("category") == "Mieszkanie" and not prev.get("area_m2")):
+    for url in all_candidates:
+        prev = prev_map.get(url)
+        if (
+            not prev
+            or not prev.get("price")
+            or (prev.get("category") == "Mieszkanie" and (not prev.get("area_m2") or not prev.get("price_per_m2")))
+        ):
             to_probe.add(url)
 
     return to_probe
@@ -176,8 +175,9 @@ def main() -> None:
             httpx.Client(headers={"User-Agent": USER_AGENT}) as client,
             ThreadPoolExecutor(max_workers=8) as executor,
         ):
-            futures = [executor.submit(fetch_sold, url, client, previous.get(url)) for url in probe_set]
-            for future in as_completed(futures):
+            future_to_url = {executor.submit(fetch_sold, url, client, previous.get(url)): url for url in probe_set}
+            for future in as_completed(future_to_url):
+                url = future_to_url[future]
                 if offer := future.result():
                     prev_info = previous.get(offer["url"], {})
                     offer["detected_at"] = prev_info.get("detected_at", datetime.now(UTC).isoformat())
@@ -185,6 +185,12 @@ def main() -> None:
                         if not offer.get(field) and prev_info.get(field):
                             offer[field] = prev_info[field]
                     found.append(offer)
+                elif url in previous:
+                    print(
+                        f"WARNING: probe failed for previously known sold offer {url}; retaining previous record",
+                        file=sys.stderr,
+                    )
+                    found.append(previous[url])
 
     found.sort(key=lambda o: (o["category"], o["unit"]))
     out_path = Path(args.out)
