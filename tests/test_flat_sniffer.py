@@ -255,9 +255,17 @@ class TestWeeklyChanges(unittest.TestCase):
             },
         ]
         html_out = build_weekly_changes_html(history, weeks_count=4)
-        self.assertIn("week-card", html_out)
+        self.assertIn('<details class="week-card" open', html_out)
+        self.assertIn("chip-sold", html_out)
+        self.assertIn("chip-res", html_out)
         self.assertIn("Mieszkanie 1_1", html_out)
         self.assertIn("Mieszkanie 1_2", html_out)
+
+    def test_build_weekly_changes_html_empty(self):
+        self.assertEqual(
+            build_weekly_changes_html([]),
+            '<div class="empty-state">Brak zarejestrowanych zmian w historii.</div>',
+        )
 
     def test_event_row_html(self):
         event = {
@@ -266,14 +274,18 @@ class TestWeeklyChanges(unittest.TestCase):
             "event": "price_change",
             "old_price": "600 000 zł",
             "new_price": "580 000 zł",
-            "delta_amount": -20000,
-            "delta_pct": -3.3,
             "url": "https://example.com/34_1",
         }
         row = event_row_html(event)
         self.assertIn("week-event-row", row)
         self.assertIn("Mieszkanie 34_1", row)
         self.assertIn("Zmiana ceny", row)
+        self.assertIn("diff-old", row)
+        self.assertIn("diff-arrow", row)
+        self.assertIn("diff-new", row)
+        self.assertIn("delta-drop", row)
+        self.assertIn("-20 000 zł (-3.3%)", row)
+        self.assertIn("event-link-btn", row)
 
 
 class TestCandidatesGapScanning(unittest.TestCase):
