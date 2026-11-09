@@ -13,10 +13,16 @@
   let catalogSearch = '';
   let catalogStatusFilter = 'all'; // 'all' | 'available' | 'reserved' | 'sold'
   let catalogRoomsFilter = 'all';  // 'all' | '2' | '3' | '4'
+  let catalogStaircaseFilter = 'all'; // 'all' | '34' | '36' | '38' | '40'
   let catalogSpecialFilter = 'all'; // 'all' | 'drops'
+  let catalogMaxPrice = null;
+  let catalogMinArea = null;
+  let catalogMaxArea = null;
   let catalogShowSold = false;
   let catalogSortCol = 'price';
   let catalogSortDir = 'asc';
+
+  let isUpdatingFromHash = false;
 
   // Timeline scope
   let timelineScope = 'flats'; // 'flats' | 'all'
@@ -55,6 +61,132 @@
     return Math.round(num).toLocaleString('pl-PL') + ' zł';
   }
 
+  // --- URL State / Deep Linking ---
+  function updateUrlHash() {
+    if (isUpdatingFromHash) return;
+    const params = new URLSearchParams();
+    if (selectedCategory && selectedCategory !== 'Mieszkanie') {
+      params.set('cat', selectedCategory);
+    }
+    if (catalogStatusFilter && catalogStatusFilter !== 'all') {
+      params.set('status', catalogStatusFilter);
+    }
+    if (catalogRoomsFilter && catalogRoomsFilter !== 'all') {
+      params.set('rooms', catalogRoomsFilter);
+    }
+    if (catalogStaircaseFilter && catalogStaircaseFilter !== 'all') {
+      params.set('staircase', catalogStaircaseFilter);
+    }
+    if (catalogSpecialFilter === 'drops') {
+      params.set('drops', '1');
+    }
+    if (catalogShowSold) {
+      params.set('sold', '1');
+    }
+    if (catalogSearch) {
+      params.set('q', catalogSearch);
+    }
+    if (catalogMaxPrice) {
+      params.set('max_p', String(catalogMaxPrice));
+    }
+    if (catalogMinArea) {
+      params.set('min_a', String(catalogMinArea));
+    }
+    if (catalogMaxArea) {
+      params.set('max_a', String(catalogMaxArea));
+    }
+    if (catalogSortCol !== 'price' || catalogSortDir !== 'asc') {
+      params.set('sort', `${catalogSortCol}_${catalogSortDir}`);
+    }
+
+    const hashStr = params.toString();
+    const newHash = hashStr ? '#' + hashStr : '';
+    if (window.location.hash !== newHash) {
+      const newUrl = newHash ? newHash : window.location.pathname + window.location.search;
+      history.replaceState(null, '', newUrl);
+    }
+  }
+
+  function loadStateFromUrlHash() {
+    isUpdatingFromHash = true;
+
+    // Reset to defaults first
+    selectedCategory = 'Mieszkanie';
+    catalogStatusFilter = 'all';
+    catalogRoomsFilter = 'all';
+    catalogStaircaseFilter = 'all';
+    catalogSpecialFilter = 'all';
+    catalogShowSold = false;
+    catalogSearch = '';
+    catalogMaxPrice = null;
+    catalogMinArea = null;
+    catalogMaxArea = null;
+    catalogSortCol = 'price';
+    catalogSortDir = 'asc';
+
+    const searchInput = document.getElementById('table-search');
+    if (searchInput) searchInput.value = '';
+    const clearBtn = document.getElementById('search-clear-btn');
+    if (clearBtn) clearBtn.classList.add('hidden');
+    const maxPEl = document.getElementById('filter-max-price');
+    if (maxPEl) maxPEl.value = '';
+    const minAEl = document.getElementById('filter-min-area');
+    if (minAEl) minAEl.value = '';
+    const maxAEl = document.getElementById('filter-max-area');
+    if (maxAEl) maxAEl.value = '';
+
+    const rawHash = window.location.hash.replace(/^#/, '');
+    if (rawHash) {
+      const params = new URLSearchParams(rawHash);
+
+      if (params.has('cat')) {
+        selectedCategory = params.get('cat');
+      }
+      if (params.has('status')) {
+        catalogStatusFilter = params.get('status');
+      }
+      if (params.has('rooms')) {
+        catalogRoomsFilter = params.get('rooms');
+      }
+      if (params.has('staircase')) {
+        catalogStaircaseFilter = params.get('staircase');
+      }
+      if (params.get('drops') === '1') {
+        catalogSpecialFilter = 'drops';
+      }
+      if (params.get('sold') === '1') {
+        catalogShowSold = true;
+      }
+      if (params.has('q')) {
+        catalogSearch = params.get('q');
+        if (searchInput) searchInput.value = catalogSearch;
+        if (clearBtn) clearBtn.classList.remove('hidden');
+      }
+      if (params.has('max_p')) {
+        catalogMaxPrice = parseInt(params.get('max_p'), 10) || null;
+        if (maxPEl && catalogMaxPrice) maxPEl.value = catalogMaxPrice;
+      }
+      if (params.has('min_a')) {
+        catalogMinArea = parseFloat(params.get('min_a')) || null;
+        if (minAEl && catalogMinArea) minAEl.value = catalogMinArea;
+      }
+      if (params.has('max_a')) {
+        catalogMaxArea = parseFloat(params.get('max_a')) || null;
+        if (maxAEl && catalogMaxArea) maxAEl.value = catalogMaxArea;
+      }
+      if (params.has('sort')) {
+        const sortVal = params.get('sort');
+        const lastUnderscore = sortVal.lastIndexOf('_');
+        if (lastUnderscore !== -1) {
+          catalogSortCol = sortVal.slice(0, lastUnderscore);
+          catalogSortDir = sortVal.slice(lastUnderscore + 1);
+        }
+      }
+    }
+
+    isUpdatingFromHash = false;
+  }
+
   // --- Initialization ---
   function init() {
     const rawDataEl = document.getElementById('offers-data');
@@ -67,8 +199,14 @@
     }
 
     initTheme();
+    loadStateFromUrlHash();
     initKeyboardAccessibility();
     renderAll();
+
+    window.addEventListener('hashchange', () => {
+      loadStateFromUrlHash();
+      renderAll();
+    });
   }
 
   function initKeyboardAccessibility() {
@@ -128,12 +266,25 @@
 
     catalogStatusFilter = 'all';
     catalogRoomsFilter = 'all';
+    catalogStaircaseFilter = 'all';
     catalogSpecialFilter = 'all';
+    catalogMaxPrice = null;
+    catalogMinArea = null;
+    catalogMaxArea = null;
+
+    const maxPEl = document.getElementById('filter-max-price');
+    if (maxPEl) maxPEl.value = '';
+    const minAEl = document.getElementById('filter-min-area');
+    if (minAEl) minAEl.value = '';
+    const maxAEl = document.getElementById('filter-max-area');
+    if (maxAEl) maxAEl.value = '';
+
     catalogShowSold = false;
     catalogSortCol = 'price';
     catalogSortDir = 'asc';
 
     renderAll();
+    updateUrlHash();
   };
 
   function updateCategoryTabs() {
@@ -157,6 +308,11 @@
     const modeWrap = document.getElementById('hist-mode-wrap');
     if (modeWrap) {
       modeWrap.style.display = selectedCategory === 'Mieszkanie' ? 'flex' : 'none';
+    }
+
+    const areaField = document.getElementById('filter-min-area')?.closest('.range-field');
+    if (areaField) {
+      areaField.style.display = (selectedCategory === 'Mieszkanie' || selectedCategory === 'Komórka') ? 'inline-flex' : 'none';
     }
   }
 
@@ -377,8 +533,9 @@
     const countRes = catOffers.filter(o => o.kind === 'reserved').length;
     const countSold = catOffers.filter(o => o.kind === 'sold').length;
     const countDrops = catOffers.filter(o => o.has_drop).length;
+    const isAllActive = catalogStatusFilter === 'all' && catalogSpecialFilter === 'all' && catalogRoomsFilter === 'all' && catalogStaircaseFilter === 'all';
 
-    html += `<button class="q-pill${catalogStatusFilter === 'all' && catalogSpecialFilter === 'all' && catalogRoomsFilter === 'all' ? ' active' : ''}" onclick="setCatalogFilter('all')">Wszystkie (${countAvail + countRes})</button>`;
+    html += `<button class="q-pill${isAllActive ? ' active' : ''}" onclick="setCatalogFilter('all')">Wszystkie (${countAvail + countRes})</button>`;
     html += `<button class="q-pill${catalogStatusFilter === 'available' ? ' active' : ''}" onclick="setCatalogFilter('status', 'available')">Wolne (${countAvail})</button>`;
     if (countRes > 0) {
       html += `<button class="q-pill${catalogStatusFilter === 'reserved' ? ' active' : ''}" onclick="setCatalogFilter('status', 'reserved')">Rezerwacje (${countRes})</button>`;
@@ -392,6 +549,14 @@
       if (rooms2 > 0) html += `<button class="q-pill${catalogRoomsFilter === '2' ? ' active' : ''}" onclick="setCatalogFilter('rooms', '2')">2 pokoje (${rooms2})</button>`;
       if (rooms3 > 0) html += `<button class="q-pill${catalogRoomsFilter === '3' ? ' active' : ''}" onclick="setCatalogFilter('rooms', '3')">3 pokoje (${rooms3})</button>`;
       if (rooms4 > 0) html += `<button class="q-pill${catalogRoomsFilter === '4' ? ' active' : ''}" onclick="setCatalogFilter('rooms', '4')">4 pokoje (${rooms4})</button>`;
+
+      const staircases = ['34', '36', '38', '40'];
+      staircases.forEach(sc => {
+        const scCount = catOffers.filter(o => o.staircase === sc && o.kind === 'available').length;
+        if (scCount > 0) {
+          html += `<button class="q-pill${catalogStaircaseFilter === sc ? ' active' : ''}" onclick="setCatalogFilter('staircase', '${sc}')">Klatka ${sc} (${scCount})</button>`;
+        }
+      });
 
       if (countDrops > 0) {
         html += `<button class="q-pill${catalogSpecialFilter === 'drops' ? ' active' : ''}" onclick="setCatalogFilter('special', 'drops')">🔥 Obniżki cen (${countDrops})</button>`;
@@ -411,8 +576,8 @@
   }
 
   window.setCatalogFilter = function(type, val) {
-    // If called from hero metrics or room chips, ensure category is Mieszkanie
-    if (selectedCategory !== 'Mieszkanie') {
+    // If called from hero metrics or room/staircase chips, ensure category is Mieszkanie
+    if ((type === 'rooms' || type === 'staircase' || (type === 'special' && val === 'drops')) && selectedCategory !== 'Mieszkanie') {
       selectedCategory = 'Mieszkanie';
       updateCategoryTabs();
       renderHistogram();
@@ -421,17 +586,21 @@
     if (type === 'all') {
       catalogStatusFilter = 'all';
       catalogRoomsFilter = 'all';
+      catalogStaircaseFilter = 'all';
       catalogSpecialFilter = 'all';
     } else if (type === 'status') {
       catalogStatusFilter = catalogStatusFilter === val ? 'all' : val;
     } else if (type === 'rooms') {
       catalogRoomsFilter = catalogRoomsFilter === val ? 'all' : val;
+    } else if (type === 'staircase') {
+      catalogStaircaseFilter = catalogStaircaseFilter === val ? 'all' : val;
     } else if (type === 'special') {
       catalogSpecialFilter = catalogSpecialFilter === val ? 'all' : val;
     }
 
     renderQuickFilters();
     renderTable();
+    updateUrlHash();
     scrollToTable();
   };
 
@@ -439,9 +608,10 @@
     const chk = document.getElementById('chk-show-sold');
     catalogShowSold = chk ? chk.checked : false;
     renderTable();
+    updateUrlHash();
   };
 
-  // --- Search Input ---
+  // --- Search & Range Inputs ---
   window.handleSearchInput = function(val) {
     catalogSearch = (val || '').trim();
     const clearBtn = document.getElementById('search-clear-btn');
@@ -449,6 +619,7 @@
       clearBtn.classList.toggle('hidden', !catalogSearch);
     }
     renderTable();
+    updateUrlHash();
   };
 
   window.clearSearch = function() {
@@ -458,6 +629,28 @@
     const clearBtn = document.getElementById('search-clear-btn');
     if (clearBtn) clearBtn.classList.add('hidden');
     renderTable();
+    updateUrlHash();
+  };
+
+  window.handleMaxPriceInput = function(val) {
+    const num = parseInt(val, 10);
+    catalogMaxPrice = !isNaN(num) && num > 0 ? num : null;
+    renderTable();
+    updateUrlHash();
+  };
+
+  window.handleMinAreaInput = function(val) {
+    const num = parseFloat(val);
+    catalogMinArea = !isNaN(num) && num > 0 ? num : null;
+    renderTable();
+    updateUrlHash();
+  };
+
+  window.handleMaxAreaInput = function(val) {
+    const num = parseFloat(val);
+    catalogMaxArea = !isNaN(num) && num > 0 ? num : null;
+    renderTable();
+    updateUrlHash();
   };
 
   window.resetAllCatalogFilters = function() {
@@ -469,13 +662,26 @@
 
     catalogStatusFilter = 'all';
     catalogRoomsFilter = 'all';
+    catalogStaircaseFilter = 'all';
     catalogSpecialFilter = 'all';
+    catalogMaxPrice = null;
+    catalogMinArea = null;
+    catalogMaxArea = null;
+
+    const maxPEl = document.getElementById('filter-max-price');
+    if (maxPEl) maxPEl.value = '';
+    const minAEl = document.getElementById('filter-min-area');
+    if (minAEl) minAEl.value = '';
+    const maxAEl = document.getElementById('filter-max-area');
+    if (maxAEl) maxAEl.value = '';
+
     catalogShowSold = false;
     selectedHistogramBin = null;
 
     renderHistogram();
     renderQuickFilters();
     renderTable();
+    updateUrlHash();
   };
 
   // --- Table Sorting ---
@@ -487,6 +693,7 @@
       catalogSortDir = 'asc';
     }
     renderTable();
+    updateUrlHash();
   };
 
   // --- Table Rendering ---
@@ -513,9 +720,27 @@
       items = items.filter(o => String(o.rooms).trim() === catalogRoomsFilter);
     }
 
+    // Staircase filter
+    if (catalogStaircaseFilter !== 'all') {
+      items = items.filter(o => String(o.staircase).trim() === catalogStaircaseFilter);
+    }
+
     // Special filter (drops)
     if (catalogSpecialFilter === 'drops') {
       items = items.filter(o => o.has_drop);
+    }
+
+    // Range filters: max price
+    if (catalogMaxPrice != null && catalogMaxPrice > 0) {
+      items = items.filter(o => o.price_num != null && o.price_num <= catalogMaxPrice);
+    }
+
+    // Range filters: min/max area
+    if (catalogMinArea != null && catalogMinArea > 0) {
+      items = items.filter(o => o.area_num != null && o.area_num >= catalogMinArea);
+    }
+    if (catalogMaxArea != null && catalogMaxArea > 0) {
+      items = items.filter(o => o.area_num != null && o.area_num <= catalogMaxArea);
     }
 
     // Histogram bin filter
@@ -599,13 +824,46 @@
     }
     if (catalogStatusFilter !== 'all') {
       const labels = { available: 'Tylko wolne', reserved: 'Tylko rezerwacje', sold: 'Tylko sprzedane' };
-      activeChips.push({ label: labels[catalogStatusFilter] || catalogStatusFilter, clear: () => { catalogStatusFilter = 'all'; renderQuickFilters(); renderTable(); } });
+      activeChips.push({ label: labels[catalogStatusFilter] || catalogStatusFilter, clear: () => { catalogStatusFilter = 'all'; renderQuickFilters(); renderTable(); updateUrlHash(); } });
     }
     if (catalogRoomsFilter !== 'all') {
-      activeChips.push({ label: `${catalogRoomsFilter} pokoje`, clear: () => { catalogRoomsFilter = 'all'; renderQuickFilters(); renderTable(); } });
+      activeChips.push({ label: `${catalogRoomsFilter} pokoje`, clear: () => { catalogRoomsFilter = 'all'; renderQuickFilters(); renderTable(); updateUrlHash(); } });
+    }
+    if (catalogStaircaseFilter !== 'all') {
+      activeChips.push({ label: `Klatka ${catalogStaircaseFilter}`, clear: () => { catalogStaircaseFilter = 'all'; renderQuickFilters(); renderTable(); updateUrlHash(); } });
     }
     if (catalogSpecialFilter === 'drops') {
-      activeChips.push({ label: 'Tylko obniżki cen', clear: () => { catalogSpecialFilter = 'all'; renderQuickFilters(); renderTable(); } });
+      activeChips.push({ label: 'Tylko obniżki cen', clear: () => { catalogSpecialFilter = 'all'; renderQuickFilters(); renderTable(); updateUrlHash(); } });
+    }
+    if (catalogMaxPrice) {
+      activeChips.push({
+        label: `Cena do: ${catalogMaxPrice.toLocaleString('pl-PL')} zł`,
+        clear: () => {
+          catalogMaxPrice = null;
+          const el = document.getElementById('filter-max-price');
+          if (el) el.value = '';
+          renderTable();
+          updateUrlHash();
+        }
+      });
+    }
+    if (catalogMinArea || catalogMaxArea) {
+      const label = catalogMinArea && catalogMaxArea
+        ? `Metraż: ${catalogMinArea}–${catalogMaxArea} m²`
+        : (catalogMinArea ? `Metraż od: ${catalogMinArea} m²` : `Metraż do: ${catalogMaxArea} m²`);
+      activeChips.push({
+        label: label,
+        clear: () => {
+          catalogMinArea = null;
+          catalogMaxArea = null;
+          const minEl = document.getElementById('filter-min-area');
+          if (minEl) minEl.value = '';
+          const maxEl = document.getElementById('filter-max-area');
+          if (maxEl) maxEl.value = '';
+          renderTable();
+          updateUrlHash();
+        }
+      });
     }
     if (catalogSearch) {
       activeChips.push({ label: `Szukaj: "${catalogSearch}"`, clear: () => clearSearch() });
