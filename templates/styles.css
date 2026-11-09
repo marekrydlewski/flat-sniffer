@@ -993,6 +993,7 @@ button {
 .badge-status { background-color: var(--amber-subtle); color: var(--amber); }
 .badge-price { background-color: var(--primary-subtle); color: var(--primary); }
 .badge-removed { background-color: var(--red-subtle); color: var(--red); }
+.badge-sold { background-color: var(--red-subtle); color: var(--red); }
 .badge-neutral { background-color: var(--bg-subtle); color: var(--text-muted); }
 
 .event-unit-name {

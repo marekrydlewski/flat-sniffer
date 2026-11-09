@@ -31,7 +31,11 @@ FLOOR_RE = re.compile(r"pi[eę]tro(?:\s*[:=])?\s*(-?\d+|\bparter\b)", re.DOTALL 
 STAIRCASE_RE = re.compile(r"Klatka\s*([A-Za-z0-9_-]+)", re.DOTALL | re.IGNORECASE)
 
 
-def candidates(registry: dict, previous: dict | None = None) -> set[str]:
+def candidates(
+    registry: dict,
+    previous: dict | None = None,
+    history: list[dict] | None = None,
+) -> set[str]:
     """Generate gaps in known numbered offer series, never probing outside them."""
     by_stem: dict[tuple[str, str], list[str]] = {}
     for offer in registry.values():
@@ -52,13 +56,22 @@ def candidates(registry: dict, previous: dict | None = None) -> set[str]:
                 result.add(f"{stem}{suffix}")
     if previous:
         result.update(previous.keys())
+    if history:
+        for event in history:
+            if event.get("event") == "removed_from_listing" and event.get("url"):
+                result.add(event["url"])
     result.difference_update(offer["url"] for offer in registry.values())
     return result
 
 
-def urls_to_probe(registry: dict, previous: dict | None = None, refresh_all: bool = False) -> set[str]:
+def urls_to_probe(
+    registry: dict,
+    previous: dict | None = None,
+    history: list[dict] | None = None,
+    refresh_all: bool = False,
+) -> set[str]:
     """Determine which candidate URLs need network probing, skipping already complete records."""
-    all_candidates = candidates(registry, previous)
+    all_candidates = candidates(registry, previous, history=history)
     if refresh_all:
         return all_candidates
 
@@ -154,6 +167,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--registry", default="registry.json")
     parser.add_argument("--out", default="sold_registry.json")
+    parser.add_argument("--history", default="history.log")
     parser.add_argument("--refresh-all", action="store_true", help="force re-fetching all sold offers")
     args = parser.parse_args()
     registry = json.loads(Path(args.registry).read_text(encoding="utf-8"))
@@ -163,9 +177,15 @@ def main() -> None:
         if previous_path.exists()
         else {}
     )
+    history_path = Path(args.history)
+    history = (
+        [json.loads(line) for line in history_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        if history_path.exists()
+        else []
+    )
 
     active_urls = {offer["url"] for offer in registry.values()}
-    probe_set = urls_to_probe(registry, previous, refresh_all=args.refresh_all)
+    probe_set = urls_to_probe(registry, previous, history=history, refresh_all=args.refresh_all)
 
     # Retain already complete sold records that don't need network probing
     found = [offer for url, offer in previous.items() if url not in active_urls and url not in probe_set]
