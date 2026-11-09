@@ -278,5 +278,31 @@ class TestCandidatesGapScanning(unittest.TestCase):
         self.assertNotIn("https://swietegomichala.pl/pl/mieszkanie/SM2-A1-3", res)
 
 
+class TestSoldOfferMetadataParsing(unittest.TestCase):
+    def test_metadata_regexes(self):
+        from scan_sold import AREA_RE, FLOOR_RE, ROOMS_RE, STAIRCASE_RE
+
+        sample_html = """
+        Klatka 34, piętro 2
+        <table class="offers-data">
+            <tr><td>Powierzchnia</td><th class="text-right">43,02 m<sup>2</sup></th></tr>
+            <tr><td>Pokoje</td><th class="text-right">2</th></tr>
+        </table>
+        """
+        area = AREA_RE.search(sample_html)
+        rooms = ROOMS_RE.search(sample_html)
+        floor = FLOOR_RE.search(sample_html)
+        staircase = STAIRCASE_RE.search(sample_html)
+
+        assert area is not None
+        self.assertEqual(area.group(1), "43,02")
+        assert rooms is not None
+        self.assertEqual(rooms.group(1), "2")
+        assert floor is not None
+        self.assertEqual(floor.group(1), "2")
+        assert staircase is not None
+        self.assertEqual(staircase.group(1), "34")
+
+
 if __name__ == "__main__":
     unittest.main()

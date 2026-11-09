@@ -21,6 +21,10 @@ TITLE_RE = re.compile(r"<h2[^>]*>(?P<title>.*?)</h2>", re.DOTALL)
 PRICE_RE = re.compile(r'<h4 class="mb-0 text-black">([^<]+)</h4>')
 ID_RE = re.compile(r'offersPrices\?id=(?P<id>\d+)|data-id="(?P<data_id>\d+)"')
 TRAILING_NUMBER_RE = re.compile(r"^(?P<stem>.*?)(?P<number>\d+)$")
+AREA_RE = re.compile(r"Powierzchnia</td>\s*<th[^>]*>\s*([\d,]+)\s*m<sup>2</sup>", re.DOTALL)
+ROOMS_RE = re.compile(r"Pokoje</td>\s*<th[^>]*>\s*(\d+)", re.DOTALL)
+FLOOR_RE = re.compile(r"piętro\s*(-?\d+|parter)", re.DOTALL | re.IGNORECASE)
+STAIRCASE_RE = re.compile(r"Klatka\s*(\d+)", re.DOTALL | re.IGNORECASE)
 
 
 def candidates(registry: dict, previous: dict | None = None) -> set[str]:
@@ -69,22 +73,41 @@ def fetch_sold(
     if len(title_parts) < 2:
         return None
     price_match = PRICE_RE.search(response.text)
-    price = price_match.group(1).strip() if price_match else None
-    if not price:
-        if previous_price:
-            price = previous_price
-        else:
-            id_match = ID_RE.search(response.text)
-            if id_match:
-                offer_id = id_match.group("id") or id_match.group("data_id")
-                price, _ = fetch_offer_price(offer_id, client)
-    return {
+    price = price_match.group(1).strip() if price_match else (previous_price or None)
+    price_per_m2 = None
+
+    id_match = ID_RE.search(response.text)
+    if id_match and (not price or not price_per_m2):
+        offer_id = id_match.group("id") or id_match.group("data_id")
+        fetched_p, fetched_pm2 = fetch_offer_price(offer_id, client)
+        if not price and fetched_p:
+            price = fetched_p
+        if fetched_pm2:
+            price_per_m2 = fetched_pm2
+
+    area_match = AREA_RE.search(response.text)
+    rooms_match = ROOMS_RE.search(response.text)
+    floor_match = FLOOR_RE.search(response.text)
+    staircase_match = STAIRCASE_RE.search(response.text)
+
+    res = {
         "category": unicodedata.normalize("NFC", title_parts[0]),
         "unit": unicodedata.normalize("NFC", title_parts[-1]),
         "status": "Sprzedane",
         "price": price,
         "url": url,
     }
+    if area_match:
+        res["area_m2"] = area_match.group(1).strip()
+    if rooms_match:
+        res["rooms"] = rooms_match.group(1).strip()
+    if floor_match:
+        res["floor"] = floor_match.group(1).strip()
+    if staircase_match:
+        res["staircase"] = staircase_match.group(1).strip()
+    if price_per_m2:
+        res["price_per_m2"] = price_per_m2
+    return res
 
 
 def main() -> None:
@@ -112,8 +135,9 @@ def main() -> None:
             if offer := future.result():
                 prev_info = previous.get(offer["url"], {})
                 offer["detected_at"] = prev_info.get("detected_at", datetime.now(UTC).isoformat())
-                if not offer["price"] and prev_info.get("price"):
-                    offer["price"] = prev_info["price"]
+                for field in ("price", "area_m2", "rooms", "floor", "staircase", "price_per_m2"):
+                    if not offer.get(field) and prev_info.get(field):
+                        offer[field] = prev_info[field]
                 found.append(offer)
     found.sort(key=lambda o: (o["category"], o["unit"]))
     out_path = Path(args.out)
