@@ -6,10 +6,12 @@
     "extras": [
       "Parter"
     ],
+    "floor": "Parter",
     "id": "102",
     "price": "526 281 zł",
     "price_per_m2": null,
     "rooms": "2",
+    "staircase": "36",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "36_1",
@@ -22,10 +24,12 @@
     "extras": [
       "Piętro 1"
     ],
+    "floor": "Piętro 1",
     "id": "104",
     "price": "561 411 zł",
     "price_per_m2": null,
     "rooms": "2",
+    "staircase": "34",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "34_6",
@@ -38,10 +42,12 @@
     "extras": [
       "Piętro 1"
     ],
+    "floor": "Piętro 1",
     "id": "105",
     "price": "677 933 zł",
     "price_per_m2": null,
     "rooms": "3",
+    "staircase": "34",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "34_7",
@@ -54,10 +60,12 @@
     "extras": [
       "Piętro 1"
     ],
+    "floor": "Piętro 1",
     "id": "106",
     "price": "546 875 zł",
     "price_per_m2": null,
     "rooms": "2",
+    "staircase": "34",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "34_8",
@@ -70,10 +78,12 @@
     "extras": [
       "Piętro 1"
     ],
+    "floor": "Piętro 1",
     "id": "107",
     "price": "553 750 zł",
     "price_per_m2": null,
     "rooms": "2",
+    "staircase": "34",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "34_9",
@@ -87,10 +97,12 @@
       "Piętro 1",
       "Balkon"
     ],
+    "floor": "Piętro 1",
     "id": "108",
     "price": "934 920 zł",
     "price_per_m2": null,
     "rooms": "4",
+    "staircase": "34",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "34_10",
@@ -103,10 +115,12 @@
     "extras": [
       "Piętro 1"
     ],
+    "floor": "Piętro 1",
     "id": "111",
     "price": "684 408 zł",
     "price_per_m2": null,
     "rooms": "3",
+    "staircase": "36",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "36_5",
@@ -119,10 +133,12 @@
     "extras": [
       "Piętro 1"
     ],
+    "floor": "Piętro 1",
     "id": "112",
     "price": "596 736 zł",
     "price_per_m2": null,
     "rooms": "2",
+    "staircase": "36",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "36_6",
@@ -135,10 +151,12 @@
     "extras": [
       "Piętro 1"
     ],
+    "floor": "Piętro 1",
     "id": "113",
     "price": "942 975 zł",
     "price_per_m2": null,
     "rooms": "3",
+    "staircase": "38",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "38_1",
@@ -151,10 +169,12 @@
     "extras": [
       "Piętro 1"
     ],
+    "floor": "Piętro 1",
     "id": "115",
     "price": "733 260 zł",
     "price_per_m2": null,
     "rooms": "3",
+    "staircase": "38",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "38_3",
@@ -167,10 +187,12 @@
     "extras": [
       "Piętro 2"
     ],
+    "floor": "Piętro 2",
     "id": "118",
     "price": "680 550 zł",
     "price_per_m2": null,
     "rooms": "3",
+    "staircase": "34",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "34_12",
@@ -183,10 +205,12 @@
     "extras": [
       "Piętro 2"
     ],
+    "floor": "Piętro 2",
     "id": "119",
     "price": "553 438 zł",
     "price_per_m2": null,
     "rooms": "2",
+    "staircase": "34",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "34_13",
@@ -200,10 +224,12 @@
       "Piętro 2",
       "Balkon"
     ],
+    "floor": "Piętro 2",
     "id": "121",
     "price": "938 630 zł",
     "price_per_m2": null,
     "rooms": "4",
+    "staircase": "34",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "34_15",
@@ -216,10 +242,12 @@
     "extras": [
       "Piętro 2"
     ],
+    "floor": "Piętro 2",
     "id": "125",
     "price": "599 104 zł",
     "price_per_m2": null,
     "rooms": "2",
+    "staircase": "36",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "36_10",
@@ -232,10 +260,12 @@
     "extras": [
       "Piętro 2"
     ],
+    "floor": "Piętro 2",
     "id": "127",
     "price": "736 038 zł",
     "price_per_m2": null,
     "rooms": "3",
+    "staircase": "38",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "38_6",
@@ -248,10 +278,12 @@
     "extras": [
       "Piętro 3"
     ],
+    "floor": "Piętro 3",
     "id": "128",
     "price": "950 400 zł",
     "price_per_m2": null,
     "rooms": "3",
+    "staircase": "38",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "38_7",
@@ -264,10 +296,12 @@
     "extras": [
       "Piętro 3"
     ],
+    "floor": "Piętro 3",
     "id": "131",
     "price": "563 562 zł",
     "price_per_m2": "13 100 zł / m²",
     "rooms": "2",
+    "staircase": "34",
     "status": "Rezerwacja",
     "status_color": "warning",
     "unit": "34_16",
@@ -280,10 +314,12 @@
     "extras": [
       "Piętro 3"
     ],
+    "floor": "Piętro 3",
     "id": "132",
     "price": "683 168 zł",
     "price_per_m2": null,
     "rooms": "3",
+    "staircase": "34",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "34_17",
@@ -296,10 +332,12 @@
     "extras": [
       "Piętro 3"
     ],
+    "floor": "Piętro 3",
     "id": "133",
     "price": "555 625 zł",
     "price_per_m2": null,
     "rooms": "2",
+    "staircase": "34",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "34_18",
@@ -312,10 +350,12 @@
     "extras": [
       "Piętro 3"
     ],
+    "floor": "Piętro 3",
     "id": "134",
     "price": "562 610 zł",
     "price_per_m2": null,
     "rooms": "2",
+    "staircase": "34",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "34_19",
@@ -329,10 +369,12 @@
       "Piętro 3",
       "Balkon"
     ],
+    "floor": "Piętro 3",
     "id": "135",
     "price": "942 340 zł",
     "price_per_m2": null,
     "rooms": "4",
+    "staircase": "34",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "34_20",
@@ -345,10 +387,12 @@
     "extras": [
       "Piętro 3"
     ],
+    "floor": "Piętro 3",
     "id": "139",
     "price": "601 472 zł",
     "price_per_m2": null,
     "rooms": "2",
+    "staircase": "36",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "36_14",
@@ -361,10 +405,12 @@
     "extras": [
       "Piętro 4"
     ],
+    "floor": "Piętro 4",
     "id": "140",
     "price": "954 113 zł",
     "price_per_m2": null,
     "rooms": "3",
+    "staircase": "38",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "38_10",
@@ -377,10 +423,12 @@
     "extras": [
       "Piętro 4"
     ],
+    "floor": "Piętro 4",
     "id": "142",
     "price": "741 593 zł",
     "price_per_m2": null,
     "rooms": "3",
+    "staircase": "38",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "38_12",
@@ -393,12 +441,14 @@
     "extras": [
       "Piętro 4"
     ],
+    "floor": "Piętro 4",
     "id": "144",
     "price": "685 785 zł",
-    "price_per_m2": null,
+    "price_per_m2": "13 100 zł / m²",
     "rooms": "3",
-    "status": "Wolne",
-    "status_color": "primary",
+    "staircase": "34",
+    "status": "Rezerwacja",
+    "status_color": "warning",
     "unit": "34_22",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A1-LM-34_22"
   },
@@ -409,10 +459,12 @@
     "extras": [
       "Piętro 4"
     ],
+    "floor": "Piętro 4",
     "id": "145",
     "price": "560 000 zł",
     "price_per_m2": null,
     "rooms": "2",
+    "staircase": "34",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "34_23",
@@ -425,10 +477,12 @@
     "extras": [
       "Piętro 4"
     ],
+    "floor": "Piętro 4",
     "id": "146",
     "price": "567 040 zł",
     "price_per_m2": null,
     "rooms": "2",
+    "staircase": "34",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "34_24",
@@ -442,10 +496,12 @@
       "Piętro 4",
       "Balkon"
     ],
+    "floor": "Piętro 4",
     "id": "147",
     "price": "946 050 zł",
     "price_per_m2": null,
     "rooms": "4",
+    "staircase": "34",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "34_25",
@@ -458,10 +514,12 @@
     "extras": [
       "Piętro 4"
     ],
+    "floor": "Piętro 4",
     "id": "151",
     "price": "603 840 zł",
     "price_per_m2": null,
     "rooms": "2",
+    "staircase": "36",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "36_18",
@@ -474,10 +532,12 @@
     "extras": [
       "Piętro 5"
     ],
+    "floor": "Piętro 5",
     "id": "154",
     "price": "564 375 zł",
     "price_per_m2": null,
     "rooms": "2",
+    "staircase": "34",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "34_28",
@@ -490,10 +550,12 @@
     "extras": [
       "Piętro 5"
     ],
+    "floor": "Piętro 5",
     "id": "155",
     "price": "571 470 zł",
     "price_per_m2": null,
     "rooms": "2",
+    "staircase": "34",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "34_29",
@@ -506,10 +568,12 @@
     "extras": [
       "Piętro 6"
     ],
+    "floor": "Piętro 6",
     "id": "159",
     "price": "557 813 zł",
     "price_per_m2": "12 750 zł / m²",
     "rooms": "2",
+    "staircase": "34",
     "status": "Rezerwacja",
     "status_color": "warning",
     "unit": "34_33",
@@ -522,10 +586,12 @@
     "extras": [
       "Piętro 6"
     ],
+    "floor": "Piętro 6",
     "id": "160",
     "price": "573 685 zł",
     "price_per_m2": null,
     "rooms": "2",
+    "staircase": "34",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "34_34",
@@ -539,10 +605,12 @@
       "Piętro 6",
       "Balkon"
     ],
+    "floor": "Piętro 6",
     "id": "161",
     "price": "1 012 580 zł",
     "price_per_m2": "13 002 zł / m²",
     "rooms": "4",
+    "staircase": "34",
     "status": "Rezerwacja",
     "status_color": "warning",
     "unit": "34_35",
@@ -555,10 +623,12 @@
     "extras": [
       "Piętro 7"
     ],
+    "floor": "Piętro 7",
     "id": "165",
     "price": "567 040 zł",
     "price_per_m2": "12 800 zł / m²",
     "rooms": "2",
+    "staircase": "34",
     "status": "Rezerwacja",
     "status_color": "warning",
     "unit": "34_39",
@@ -572,10 +642,12 @@
       "Piętro 7",
       "Balkon"
     ],
+    "floor": "Piętro 7",
     "id": "166",
     "price": "1 016 520 zł",
     "price_per_m2": "12 900 zł / m²",
     "rooms": "3",
+    "staircase": "34",
     "status": "Rezerwacja",
     "status_color": "warning",
     "unit": "34_40",
@@ -590,6 +662,7 @@
     "price": "574 317 zł",
     "price_per_m2": null,
     "rooms": "2",
+    "staircase": "34",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "34_41",
@@ -602,10 +675,12 @@
     "extras": [
       "Piętro 8"
     ],
+    "floor": "Piętro 8",
     "id": "171",
     "price": "968 013 zł",
     "price_per_m2": null,
     "rooms": "3",
+    "staircase": "34",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "34_45",
@@ -620,6 +695,7 @@
     "price": "576 468 zł",
     "price_per_m2": null,
     "rooms": "2",
+    "staircase": "34",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "34_46",
@@ -632,10 +708,12 @@
     "extras": [
       "Piętro 9"
     ],
+    "floor": "Piętro 9",
     "id": "176",
     "price": "971 750 zł",
     "price_per_m2": null,
     "rooms": "3",
+    "staircase": "34",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "34_50",
@@ -648,12 +726,14 @@
     "extras": [
       "Piętro 2"
     ],
+    "floor": "Piętro 2",
     "id": "182",
     "price": "597 813 zł",
-    "price_per_m2": null,
+    "price_per_m2": "13 350 zł / m²",
     "rooms": "2",
-    "status": "Wolne",
-    "status_color": "primary",
+    "staircase": "40",
+    "status": "Rezerwacja",
+    "status_color": "warning",
     "unit": "40_10",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-C-LM-40_10"
   },
@@ -664,10 +744,12 @@
     "extras": [
       "Piętro 3"
     ],
+    "floor": "Piętro 3",
     "id": "183",
     "price": "753 524 zł",
     "price_per_m2": null,
     "rooms": "3",
+    "staircase": "40",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "40_11",
@@ -680,10 +762,12 @@
     "extras": [
       "Piętro 4"
     ],
+    "floor": "Piętro 4",
     "id": "188",
     "price": "756 456 zł",
     "price_per_m2": "12 900 zł / m²",
     "rooms": "3",
+    "staircase": "40",
     "status": "Rezerwacja",
     "status_color": "warning",
     "unit": "40_16",
@@ -696,10 +780,12 @@
     "extras": [
       "Piętro 1"
     ],
+    "floor": "Piętro 1",
     "id": "193",
     "price": "759 388 zł",
     "price_per_m2": null,
     "rooms": "3",
+    "staircase": "40",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "40_1",
@@ -712,10 +798,12 @@
     "extras": [
       "Piętro 1"
     ],
+    "floor": "Piętro 1",
     "id": "195",
     "price": "526 020 zł",
     "price_per_m2": "13 200 zł / m²",
     "rooms": "2",
+    "staircase": "40",
     "status": "Rezerwacja",
     "status_color": "warning",
     "unit": "40_3",
@@ -728,10 +816,12 @@
     "extras": [
       "Piętro 2"
     ],
+    "floor": "Piętro 2",
     "id": "198",
     "price": "750 592 zł",
     "price_per_m2": null,
     "rooms": "3",
+    "staircase": "40",
     "status": "Wolne",
     "status_color": "primary",
     "unit": "40_6",
@@ -793,6 +883,20 @@
     "unit": "26",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-26"
   },
+  "226": {
+    "area_m2": null,
+    "category": "Hala garażowa",
+    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=293",
+    "extras": [],
+    "id": "226",
+    "price": "47 000 zł",
+    "price_per_m2": null,
+    "rooms": null,
+    "status": "Rezerwacja",
+    "status_color": "warning",
+    "unit": "28",
+    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-28"
+  },
   "239": {
     "area_m2": null,
     "category": "Hala garażowa",
@@ -844,8 +948,8 @@
     "price": "37 500 zł",
     "price_per_m2": null,
     "rooms": null,
-    "status": "Wolne",
-    "status_color": "primary",
+    "status": "Rezerwacja",
+    "status_color": "warning",
     "unit": "46",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-46"
   },
@@ -2034,8 +2138,8 @@
     "price": "14 960 zł",
     "price_per_m2": null,
     "rooms": null,
-    "status": "Wolne",
-    "status_color": "primary",
+    "status": "Rezerwacja",
+    "status_color": "warning",
     "unit": "KL15",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-KL15"
   },
@@ -2214,10 +2318,12 @@
     "extras": [
       "Parter"
     ],
+    "floor": "Parter",
     "id": "97",
     "price": "572 163 zł",
     "price_per_m2": "13 450 zł / m²",
     "rooms": "2",
+    "staircase": "34",
     "status": "Rezerwacja",
     "status_color": "warning",
     "unit": "34_1",

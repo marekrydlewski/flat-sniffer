@@ -345,6 +345,14 @@
   },
   {
     "category": "Hala garażowa",
+    "unit": "4",
+    "status": "Sprzedane",
+    "price": "47 000 zł",
+    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-4",
+    "detected_at": "2026-11-09T18:00:32.945557+00:00"
+  },
+  {
+    "category": "Hala garażowa",
     "unit": "40",
     "status": "Sprzedane",
     "price": "47 000 zł",
@@ -478,6 +486,14 @@
     "price": "37 500 zł",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-MP-96",
     "detected_at": "2026-08-30T12:36:58.058487+00:00"
+  },
+  {
+    "category": "Komórka",
+    "unit": "KL14",
+    "status": "Sprzedane",
+    "price": "12 960 zł",
+    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-KL14",
+    "detected_at": "2026-11-09T18:00:33.010609+00:00"
   },
   {
     "category": "Komórka",
