@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import html
 import json
-import re
 from collections import Counter, defaultdict
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -19,7 +18,6 @@ GROUPS = {
     "Parkowanie": {"Hala garażowa", "Miejsce postojowe"},
     "Komórki lokatorskie": {"Komórka"},
 }
-GONE_RE = re.compile(r"\[GONE\]\*\*\s+(Mieszkanie|Hala garażowa|Komórka|Miejsce postojowe)\s")
 
 
 def status_kind(status: str) -> str:
@@ -353,13 +351,12 @@ def weekly_trend_charts(history: list[dict], weeks_count: int = 8) -> str:
     return "".join(charts)
 
 
-def daily_trend_charts(history: list[dict], issues: list[dict] | None = None) -> str:
+def daily_trend_charts(history: list[dict]) -> str:
     today = datetime.now(UTC).date()
     days = [today - timedelta(days=20 - offset) for offset in range(21)]
     counts = {day: Counter() for day in days}
 
     # Count removed_from_listing events directly from history.log
-    history_matched = False
     for event in history:
         if event.get("event") != "removed_from_listing":
             continue
@@ -369,19 +366,6 @@ def daily_trend_charts(history: list[dict], issues: list[dict] | None = None) ->
             continue
         if day in counts:
             counts[day][group_name(event.get("category", ""))] += 1
-            history_matched = True
-
-    # Fallback to issue markdown if history has no events in the 21-day window
-    if not history_matched and issues:
-        for issue in issues:
-            try:
-                day = datetime.fromisoformat(issue["createdAt"]).date()
-            except (KeyError, ValueError):
-                continue
-            if day not in counts:
-                continue
-            for category in GONE_RE.findall(issue.get("body", "")):
-                counts[day][group_name(category)] += 1
 
     charts = []
     width, height, padding = 280, 84, 10
@@ -533,7 +517,6 @@ def build_dashboard_context(
     registry: dict,
     events: list[dict],
     sold: list[dict],
-    issues: list[dict],
     history: list[dict],
     styles_css: str,
     app_js: str,
@@ -635,7 +618,7 @@ def build_dashboard_context(
     }
 
 
-def render(registry: dict, events: list[dict], sold: list[dict], issues: list[dict], history: list[dict]) -> str:
+def render(registry: dict, events: list[dict], sold: list[dict], history: list[dict]) -> str:
     html_template = (TEMPLATES_DIR / "dashboard.html").read_text(encoding="utf-8")
     styles_css = (TEMPLATES_DIR / "styles.css").read_text(encoding="utf-8")
     app_js = (TEMPLATES_DIR / "app.js").read_text(encoding="utf-8")
@@ -644,7 +627,6 @@ def render(registry: dict, events: list[dict], sold: list[dict], issues: list[di
         registry=registry,
         events=events,
         sold=sold,
-        issues=issues,
         history=history,
         styles_css=styles_css,
         app_js=app_js,
@@ -657,7 +639,6 @@ def main() -> None:
     parser.add_argument("--registry", default="registry.json")
     parser.add_argument("--events", default="events.json")
     parser.add_argument("--sold", default="sold_registry.json")
-    parser.add_argument("--issue-history", default="issue-history.json")
     parser.add_argument("--history", default="history.log")
     parser.add_argument("--out", default="flat-dashboard.html")
     args = parser.parse_args()
@@ -667,8 +648,6 @@ def main() -> None:
     events = json.loads(events_path.read_text(encoding="utf-8")) if events_path.exists() else []
     sold_path = Path(args.sold)
     sold = json.loads(sold_path.read_text(encoding="utf-8")) if sold_path.exists() else []
-    issue_path = Path(args.issue_history)
-    issues = json.loads(issue_path.read_text(encoding="utf-8")) if issue_path.exists() else []
     history_path = Path(args.history)
     history = (
         [json.loads(line) for line in history_path.read_text(encoding="utf-8").splitlines() if line.strip()]
@@ -676,7 +655,7 @@ def main() -> None:
         else []
     )
 
-    out_content = render(registry, events, sold, issues, history)
+    out_content = render(registry, events, sold, history)
     Path(args.out).write_text(out_content, encoding="utf-8")
     print(f"Rendered dashboard successfully to {args.out}")
 
