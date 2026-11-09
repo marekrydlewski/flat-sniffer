@@ -847,5 +847,73 @@ class TestPriceCaching(unittest.TestCase):
             self.assertEqual(reg_refreshed["100"]["price"], "560 000 zł")
 
 
+class TestBugFixes(unittest.TestCase):
+    def test_extract_floor_underground(self):
+        from flat_sniffer import extract_floor
+
+        self.assertEqual(extract_floor("-1"), "Piętro -1")
+        self.assertEqual(extract_floor("0"), "Piętro 0")
+        self.assertEqual(extract_floor("parter"), "Parter")
+        self.assertEqual(extract_floor("1"), "Piętro 1")
+        self.assertEqual(extract_floor("Piętro -1"), "Piętro -1")
+
+    def test_build_price_cache_preserves_detected_at(self):
+        from scan_sold import build_price_cache
+
+        history = [
+            {
+                "url": "https://example.com/hist",
+                "category": "Mieszkanie",
+                "unit": "34_9",
+                "price": "500 000 zł",
+                "ts": "2026-08-01T10:00:00+00:00",
+            }
+        ]
+        previous = {
+            "https://example.com/prev": {
+                "category": "Mieszkanie",
+                "unit": "34_8",
+                "price": "450 000 zł",
+                "detected_at": "2026-08-15T12:00:00+00:00",
+            }
+        }
+        cache = build_price_cache(registry={}, previous=previous, history=history)
+        # Event ts must NOT be treated as detected_at
+        self.assertNotIn("detected_at", cache.get("https://example.com/hist", {}))
+        self.assertEqual(cache["https://example.com/prev"]["detected_at"], "2026-08-15T12:00:00+00:00")
+
+    def test_app_js_floor_and_sorting_logic(self):
+        import shutil
+        import subprocess
+        from pathlib import Path
+
+        node_path = shutil.which("node")
+        if not node_path:
+            self.skipTest("node is not installed")
+
+        script = """
+        const fs = require('fs');
+        const code = fs.readFileSync(process.argv[1], 'utf-8');
+        // Extract parseFloorNum from app.js
+        const fnMatch = code.match(/function parseFloorNum\\([\\s\\S]*?\\n  \\}/);
+        if (!fnMatch) { console.error('parseFloorNum not found'); process.exit(1); }
+        eval(fnMatch[0]);
+
+        if (parseFloorNum('Piętro -1') !== -1) { console.error('P -1 != -1'); process.exit(1); }
+        if (parseFloorNum('Parter') !== 0) { console.error('Parter != 0'); process.exit(1); }
+        if (parseFloorNum('Piętro 1') !== 1) { console.error('P 1 != 1'); process.exit(1); }
+        if (parseFloorNum('Piętro 3') !== 3) { console.error('P 3 != 3'); process.exit(1); }
+        if (parseFloorNum(null) !== -999) { console.error('null != -999'); process.exit(1); }
+        """
+        templates_dir = Path(__file__).resolve().parent.parent / "templates"
+        res = subprocess.run(
+            [node_path, "-e", script, str(templates_dir / "app.js")],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(res.returncode, 0, f"Floor parsing validation failed: {res.stderr}")
+
+
 if __name__ == "__main__":
     unittest.main()

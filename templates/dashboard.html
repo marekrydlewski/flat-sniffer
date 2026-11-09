@@ -56,19 +56,19 @@
           <span class="seg seg-sold" style="width: {{flats_sold_pct}}%" title="Sprzedane: {{flats_sold}} ({{flats_sold_pct}}%)"></span>
         </div>
         <div class="sales-legend">
-          <div class="legend-item clickable" role="button" tabindex="0" onclick="setCatalogFilter('status', 'available')" title="Pokaż wolne w tabeli">
+          <div class="legend-item clickable" role="button" tabindex="0" onclick="filterFlatsByStatus('available')" title="Pokaż wolne w tabeli">
             <span class="dot dot-avail"></span>
             <span class="legend-label">Wolne mieszkania:</span>
             <strong class="legend-val">{{flats_avail}}</strong>
             <span class="legend-pct">({{flats_avail_pct}}%)</span>
           </div>
-          <div class="legend-item clickable" role="button" tabindex="0" onclick="setCatalogFilter('status', 'reserved')" title="Pokaż rezerwacje w tabeli">
+          <div class="legend-item clickable" role="button" tabindex="0" onclick="filterFlatsByStatus('reserved')" title="Pokaż rezerwacje w tabeli">
             <span class="dot dot-res"></span>
             <span class="legend-label">Rezerwacje:</span>
             <strong class="legend-val">{{flats_res}}</strong>
             <span class="legend-pct">({{flats_res_pct}}%)</span>
           </div>
-          <div class="legend-item clickable" role="button" tabindex="0" onclick="setCatalogFilter('status', 'sold')" title="Pokaż sprzedane w tabeli">
+          <div class="legend-item clickable" role="button" tabindex="0" onclick="filterFlatsByStatus('sold')" title="Pokaż sprzedane w tabeli">
             <span class="dot dot-sold"></span>
             <span class="legend-label">Sprzedane:</span>
             <strong class="legend-val">{{flats_sold}}</strong>
@@ -97,9 +97,9 @@
         <div class="metric-card">
           <span class="metric-label">Wolne wg liczby pokoi</span>
           <div class="rooms-chips">
-            <button class="room-chip" onclick="setCatalogFilter('rooms', '2')">2 pok.: <strong>{{rooms_2}}</strong></button>
-            <button class="room-chip" onclick="setCatalogFilter('rooms', '3')">3 pok.: <strong>{{rooms_3}}</strong></button>
-            <button class="room-chip" onclick="setCatalogFilter('rooms', '4')">4 pok.: <strong>{{rooms_4}}</strong></button>
+            <button class="room-chip" onclick="filterFlatsByRooms('2')">2 pok.: <strong>{{rooms_2}}</strong></button>
+            <button class="room-chip" onclick="filterFlatsByRooms('3')">3 pok.: <strong>{{rooms_3}}</strong></button>
+            <button class="room-chip" onclick="filterFlatsByRooms('4')">4 pok.: <strong>{{rooms_4}}</strong></button>
           </div>
         </div>
       </div>

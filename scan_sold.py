@@ -111,6 +111,9 @@ def build_price_cache(
         price_val = src.get("price") or src.get("new_price")
         if price_val:
             entry["price"] = price_val
+        det_val = src.get("detected_at")
+        if det_val and "detected_at" not in entry:
+            entry["detected_at"] = det_val
         for field in ("price_per_m2", "area_m2", "rooms", "floor", "staircase", "extras"):
             val = src.get(field)
             if val is not None and val != "":
@@ -294,10 +297,10 @@ def main() -> None:
                 if offer := future.result():
                     if offer["url"] in active_urls or (offer.get("category"), offer.get("unit")) in active_keys:
                         continue
-                    cached_by_url = price_cache.get(offer["url"]) or previous.get(offer["url"], {})
+                    cached_by_url = price_cache.get(offer["url"]) or {}
                     unit_key = (offer.get("category"), offer.get("unit"))
                     cached_by_unit = price_cache.get(unit_key, {})
-                    prev_info = {**cached_by_unit, **cached_by_url}
+                    prev_info = {**cached_by_unit, **cached_by_url, **previous.get(offer["url"], {})}
 
                     offer["detected_at"] = prev_info.get("detected_at", datetime.now(UTC).isoformat())
                     for field in ("price", "area_m2", "rooms", "floor", "staircase", "price_per_m2", "extras"):

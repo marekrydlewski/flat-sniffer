@@ -154,7 +154,7 @@ def extract_floor(raw_floor: str | None = None, extras: list[str] | None = None)
         cleaned = raw_floor.strip()
         if cleaned.casefold() == "parter":
             return "Parter"
-        if cleaned.isdigit():
+        if cleaned.lstrip("-").isdigit():
             return f"Piętro {cleaned}"
         return cleaned
     if extras:

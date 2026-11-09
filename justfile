@@ -23,7 +23,7 @@ serve:
 
 wt-new name:
     git fetch origin main
-    git worktree add "$$(git rev-parse --git-common-dir)/../.worktrees/{{name}}" -b {{name}} origin/main
+    git worktree add "$(git rev-parse --git-common-dir)/../.worktrees/{{name}}" -b {{name}} origin/main
 
 wt-clean:
     git worktree prune
