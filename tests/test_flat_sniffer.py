@@ -277,6 +277,32 @@ class TestCandidatesGapScanning(unittest.TestCase):
         self.assertNotIn("https://swietegomichala.pl/pl/mieszkanie/SM2-A1-1", res)
         self.assertNotIn("https://swietegomichala.pl/pl/mieszkanie/SM2-A1-3", res)
 
+    def test_urls_to_probe_skips_complete_previous(self):
+        from scan_sold import urls_to_probe
+
+        registry = {
+            "1": {"category": "Mieszkanie", "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A1-1"},
+            "3": {"category": "Mieszkanie", "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A1-3"},
+        }
+        # SM2-A1-2 is a gap. If it is already in previous with price and area, it should NOT be probed.
+        previous: dict[str, dict[str, str | None]] = {
+            "https://swietegomichala.pl/pl/mieszkanie/SM2-A1-2": {
+                "category": "Mieszkanie",
+                "unit": "2",
+                "status": "Sprzedane",
+                "price": "500 000 zł",
+                "area_m2": "40,0",
+                "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A1-2",
+            }
+        }
+        to_probe = urls_to_probe(registry, previous)
+        self.assertEqual(len(to_probe), 0)
+
+        # If price is missing, it SHOULD be probed.
+        previous["https://swietegomichala.pl/pl/mieszkanie/SM2-A1-2"]["price"] = None
+        to_probe = urls_to_probe(registry, previous)
+        self.assertIn("https://swietegomichala.pl/pl/mieszkanie/SM2-A1-2", to_probe)
+
 
 class TestSoldOfferMetadataParsing(unittest.TestCase):
     def test_metadata_regexes(self):

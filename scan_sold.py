@@ -55,6 +55,28 @@ def candidates(registry: dict, previous: dict | None = None) -> set[str]:
     return result
 
 
+def urls_to_probe(registry: dict, previous: dict, refresh_all: bool = False) -> set[str]:
+    """Determine which candidate URLs need network probing, skipping already complete records."""
+    active_urls = {offer["url"] for offer in registry.values()}
+    if refresh_all:
+        return candidates(registry, previous) - active_urls
+
+    gaps = candidates(registry) - active_urls
+    to_probe = set()
+    for url in gaps:
+        prev = previous.get(url)
+        if not prev or not prev.get("price") or (prev.get("category") == "Mieszkanie" and not prev.get("area_m2")):
+            to_probe.add(url)
+
+    for url, prev in previous.items():
+        if url in active_urls:
+            continue
+        if not prev.get("price") or (prev.get("category") == "Mieszkanie" and not prev.get("area_m2")):
+            to_probe.add(url)
+
+    return to_probe
+
+
 def fetch_sold(
     url: str,
     client: httpx.Client | None = None,
@@ -133,6 +155,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--registry", default="registry.json")
     parser.add_argument("--out", default="sold_registry.json")
+    parser.add_argument("--refresh-all", action="store_true", help="force re-fetching all sold offers")
     args = parser.parse_args()
     registry = json.loads(Path(args.registry).read_text(encoding="utf-8"))
     previous_path = Path(args.out)
@@ -141,22 +164,28 @@ def main() -> None:
         if previous_path.exists()
         else {}
     )
-    found = []
-    with (
-        httpx.Client(headers={"User-Agent": USER_AGENT}) as client,
-        ThreadPoolExecutor(max_workers=8) as executor,
-    ):
-        futures = [
-            executor.submit(fetch_sold, url, client, previous.get(url)) for url in candidates(registry, previous)
-        ]
-        for future in as_completed(futures):
-            if offer := future.result():
-                prev_info = previous.get(offer["url"], {})
-                offer["detected_at"] = prev_info.get("detected_at", datetime.now(UTC).isoformat())
-                for field in ("price", "area_m2", "rooms", "floor", "staircase", "price_per_m2"):
-                    if not offer.get(field) and prev_info.get(field):
-                        offer[field] = prev_info[field]
-                found.append(offer)
+
+    active_urls = {offer["url"] for offer in registry.values()}
+    probe_set = urls_to_probe(registry, previous, refresh_all=args.refresh_all)
+
+    # Retain already complete sold records that don't need network probing
+    found = [offer for url, offer in previous.items() if url not in active_urls and url not in probe_set]
+
+    if probe_set:
+        with (
+            httpx.Client(headers={"User-Agent": USER_AGENT}) as client,
+            ThreadPoolExecutor(max_workers=8) as executor,
+        ):
+            futures = [executor.submit(fetch_sold, url, client, previous.get(url)) for url in probe_set]
+            for future in as_completed(futures):
+                if offer := future.result():
+                    prev_info = previous.get(offer["url"], {})
+                    offer["detected_at"] = prev_info.get("detected_at", datetime.now(UTC).isoformat())
+                    for field in ("price", "area_m2", "rooms", "floor", "staircase", "price_per_m2"):
+                        if not offer.get(field) and prev_info.get(field):
+                            offer[field] = prev_info[field]
+                    found.append(offer)
+
     found.sort(key=lambda o: (o["category"], o["unit"]))
     out_path = Path(args.out)
     tmp_path = out_path.with_suffix(".json.tmp")
