@@ -14,11 +14,10 @@ from price_history import (
     parse_price_num,
 )
 from render_dashboard import (
-    daily_trend_charts,
+    build_weekly_changes_html,
+    event_row_html,
     plural_events,
     status_kind,
-    status_label,
-    weekly_trend_charts,
 )
 from scan_sold import candidates
 
@@ -51,10 +50,6 @@ class TestParsersAndFormatters(unittest.TestCase):
         self.assertEqual(status_kind("Rezerwacja"), "reserved")
         self.assertEqual(status_kind("Sprzedane"), "sold")
         self.assertEqual(status_kind("Inne"), "unavailable")
-
-        self.assertEqual(status_label("available"), "Wolne")
-        self.assertEqual(status_label("reserved"), "Rezerwacja")
-        self.assertEqual(status_label("sold"), "Sprzedane")
 
     def test_plural_events(self):
         self.assertEqual(plural_events(1), "1 zdarzenie")
@@ -245,25 +240,52 @@ class TestDiffRegistries(unittest.TestCase):
         self.assertIsNone(p.price_changes[0].delta_amount)
 
 
-class TestTrendCharts(unittest.TestCase):
-    def test_daily_trend_charts_with_history(self):
+class TestWeeklyChanges(unittest.TestCase):
+    def test_build_weekly_changes_html(self):
         now = datetime.now(UTC).isoformat()
         history = [
             {"ts": now, "event": "removed_from_listing", "category": "Mieszkanie", "unit": "1_1"},
-            {"ts": now, "event": "removed_from_listing", "category": "Hala garażowa", "unit": "10"},
+            {
+                "ts": now,
+                "event": "status_change",
+                "category": "Mieszkanie",
+                "unit": "1_2",
+                "old_status": "Wolne",
+                "new_status": "Rezerwacja",
+            },
         ]
-        html_out = daily_trend_charts(history)
-        self.assertIn("trend-card", html_out)
-        self.assertIn("Mieszkania", html_out)
+        html_out = build_weekly_changes_html(history, weeks_count=4)
+        self.assertIn('<details class="week-card" open', html_out)
+        self.assertIn("chip-sold", html_out)
+        self.assertIn("chip-res", html_out)
+        self.assertIn("Mieszkanie 1_1", html_out)
+        self.assertIn("Mieszkanie 1_2", html_out)
 
-    def test_weekly_trend_charts(self):
-        now = datetime.now(UTC).isoformat()
-        history = [
-            {"ts": now, "event": "removed_from_listing", "category": "Mieszkanie", "unit": "1_1"},
-        ]
-        html_out = weekly_trend_charts(history, weeks_count=4)
-        self.assertIn("trend-card", html_out)
-        self.assertIn("col-track", html_out)
+    def test_build_weekly_changes_html_empty(self):
+        self.assertEqual(
+            build_weekly_changes_html([]),
+            '<div class="empty-state">Brak zarejestrowanych zmian w historii.</div>',
+        )
+
+    def test_event_row_html(self):
+        event = {
+            "category": "Mieszkanie",
+            "unit": "34_1",
+            "event": "price_change",
+            "old_price": "600 000 zł",
+            "new_price": "580 000 zł",
+            "url": "https://example.com/34_1",
+        }
+        row = event_row_html(event)
+        self.assertIn("week-event-row", row)
+        self.assertIn("Mieszkanie 34_1", row)
+        self.assertIn("Zmiana ceny", row)
+        self.assertIn("diff-old", row)
+        self.assertIn("diff-arrow", row)
+        self.assertIn("diff-new", row)
+        self.assertIn("delta-drop", row)
+        self.assertIn("-20 000 zł (-3.3%)", row)
+        self.assertIn("event-link-btn", row)
 
 
 class TestCandidatesGapScanning(unittest.TestCase):
