@@ -49,11 +49,11 @@
   }
 
   function parseFloorNum(val) {
-    if (!val) return -1;
+    if (!val) return -999;
     const s = String(val).toLowerCase();
     if (s.includes('parter')) return 0;
-    const m = s.match(/\d+/);
-    return m ? parseInt(m[0], 10) : -1;
+    const m = s.match(/-?\d+/);
+    return m ? parseInt(m[0], 10) : -999;
   }
 
   function formatPrice(num) {
@@ -534,17 +534,25 @@
     const countSold = catOffers.filter(o => o.kind === 'sold').length;
     const countDrops = catOffers.filter(o => o.has_drop).length;
     const isAllActive = catalogStatusFilter === 'all' && catalogSpecialFilter === 'all' && catalogRoomsFilter === 'all' && catalogStaircaseFilter === 'all';
+    const totalCount = catalogShowSold ? (countAvail + countRes + countSold) : (countAvail + countRes);
 
-    html += `<button class="q-pill${isAllActive ? ' active' : ''}" onclick="setCatalogFilter('all')">Wszystkie (${countAvail + countRes})</button>`;
+    html += `<button class="q-pill${isAllActive ? ' active' : ''}" onclick="setCatalogFilter('all')">Wszystkie (${totalCount})</button>`;
     html += `<button class="q-pill${catalogStatusFilter === 'available' ? ' active' : ''}" onclick="setCatalogFilter('status', 'available')">Wolne (${countAvail})</button>`;
     if (countRes > 0) {
       html += `<button class="q-pill${catalogStatusFilter === 'reserved' ? ' active' : ''}" onclick="setCatalogFilter('status', 'reserved')">Rezerwacje (${countRes})</button>`;
     }
+    if (countSold > 0 && catalogStatusFilter === 'sold') {
+      html += `<button class="q-pill active" onclick="setCatalogFilter('status', 'sold')">Sprzedane (${countSold})</button>`;
+    }
 
     if (selectedCategory === 'Mieszkanie') {
-      const rooms2 = catOffers.filter(o => o.rooms === '2' && o.kind === 'available').length;
-      const rooms3 = catOffers.filter(o => o.rooms === '3' && o.kind === 'available').length;
-      const rooms4 = catOffers.filter(o => o.rooms === '4' && o.kind === 'available').length;
+      const statusMatch = o => {
+        if (catalogStatusFilter !== 'all') return o.kind === catalogStatusFilter;
+        return catalogShowSold ? true : o.kind !== 'sold';
+      };
+      const rooms2 = catOffers.filter(o => o.rooms === '2' && statusMatch(o)).length;
+      const rooms3 = catOffers.filter(o => o.rooms === '3' && statusMatch(o)).length;
+      const rooms4 = catOffers.filter(o => o.rooms === '4' && statusMatch(o)).length;
 
       if (rooms2 > 0) html += `<button class="q-pill${catalogRoomsFilter === '2' ? ' active' : ''}" onclick="setCatalogFilter('rooms', '2')">2 pokoje (${rooms2})</button>`;
       if (rooms3 > 0) html += `<button class="q-pill${catalogRoomsFilter === '3' ? ' active' : ''}" onclick="setCatalogFilter('rooms', '3')">3 pokoje (${rooms3})</button>`;
@@ -552,7 +560,7 @@
 
       const staircases = ['34', '36', '38', '40'];
       staircases.forEach(sc => {
-        const scCount = catOffers.filter(o => o.staircase === sc && o.kind === 'available').length;
+        const scCount = catOffers.filter(o => o.staircase === sc && statusMatch(o)).length;
         if (scCount > 0) {
           html += `<button class="q-pill${catalogStaircaseFilter === sc ? ' active' : ''}" onclick="setCatalogFilter('staircase', '${sc}')">Klatka ${sc} (${scCount})</button>`;
         }
@@ -574,6 +582,41 @@
 
     container.innerHTML = html;
   }
+
+  window.filterFlatsByStatus = function(status) {
+    if (selectedCategory !== 'Mieszkanie') {
+      selectedCategory = 'Mieszkanie';
+      updateCategoryTabs();
+      renderHistogram();
+    }
+    catalogRoomsFilter = 'all';
+    catalogStaircaseFilter = 'all';
+    catalogSpecialFilter = 'all';
+    catalogStatusFilter = status;
+    if (status === 'sold') {
+      catalogShowSold = true;
+    }
+    renderQuickFilters();
+    renderTable();
+    updateUrlHash();
+    scrollToTable();
+  };
+
+  window.filterFlatsByRooms = function(rooms) {
+    if (selectedCategory !== 'Mieszkanie') {
+      selectedCategory = 'Mieszkanie';
+      updateCategoryTabs();
+      renderHistogram();
+    }
+    catalogStatusFilter = 'available';
+    catalogRoomsFilter = rooms;
+    catalogStaircaseFilter = 'all';
+    catalogSpecialFilter = 'all';
+    renderQuickFilters();
+    renderTable();
+    updateUrlHash();
+    scrollToTable();
+  };
 
   window.setCatalogFilter = function(type, val) {
     // If called from hero metrics or room/staircase chips, ensure category is Mieszkanie
@@ -711,7 +754,7 @@
     // Status filter
     if (catalogStatusFilter !== 'all') {
       items = items.filter(o => o.kind === catalogStatusFilter);
-    } else if (!catalogShowSold) {
+    } else if (!catalogShowSold && catalogSpecialFilter !== 'drops') {
       items = items.filter(o => o.kind !== 'sold');
     }
 
@@ -927,7 +970,8 @@
 
     // Render Table Body
     if (items.length === 0) {
-      bodyEl.innerHTML = `<tr><td colspan="8" class="table-empty-state">Brak lokali spełniających wybrane kryteria wyszukiwania.</td></tr>`;
+      const colSpan = selectedCategory === 'Mieszkanie' ? 8 : (selectedCategory === 'Komórka' ? 5 : 4);
+      bodyEl.innerHTML = `<tr><td colspan="${colSpan}" class="table-empty-state">Brak lokali spełniających wybrane kryteria wyszukiwania.</td></tr>`;
       return;
     }
 
