@@ -462,5 +462,85 @@ class TestSoldOfferMetadataParsing(unittest.TestCase):
         self.assertEqual(floor_neg.group(1), "-1")
 
 
+class TestDashboardP1Improvements(unittest.TestCase):
+    def test_build_compact_offers_json_includes_crm_url(self):
+        from render_dashboard import build_compact_offers_json
+
+        offers = [
+            {
+                "id": "102",
+                "category": "Mieszkanie",
+                "unit": "36_1",
+                "status": "Wolne",
+                "status_kind": "available",
+                "price": "526 281 zł",
+                "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A2-LM-36_01",
+                "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=123",
+            }
+        ]
+        compact = build_compact_offers_json(offers)
+        self.assertEqual(len(compact), 1)
+        self.assertEqual(compact[0]["crm_url"], "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=123")
+
+    def test_normalize_offers_deduplicates_relisted_sold(self):
+        from render_dashboard import normalize_offers
+
+        registry = {
+            "102": {
+                "category": "Mieszkanie",
+                "unit": "36_1",
+                "status": "Wolne",
+                "price": "526 281 zł",
+                "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A2-LM-36_01",
+            }
+        }
+        sold = [
+            {
+                "category": "Mieszkanie",
+                "unit": "36_1",
+                "status": "Sprzedane",
+                "price": "526 281 zł",
+                "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A2-LM-36_01",
+            },
+            {
+                "category": "Mieszkanie",
+                "unit": "34_99",
+                "status": "Sprzedane",
+                "price": "600 000 zł",
+                "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A1-LM-34_99",
+            },
+        ]
+        history = []
+        offers, normalized_sold, all_offers = normalize_offers(registry, sold, history)
+        # 36_1 must NOT appear in normalized_sold because it is active in registry
+        self.assertEqual(len(offers), 1)
+        self.assertEqual(len(normalized_sold), 1)
+        self.assertEqual(normalized_sold[0]["unit"], "34_99")
+        self.assertEqual(len(all_offers), 2)
+        units = [o["unit"] for o in all_offers]
+        self.assertEqual(units.count("36_1"), 1)
+        self.assertEqual(units.count("34_99"), 1)
+
+    def test_render_without_events(self):
+        from render_dashboard import render
+
+        registry = {
+            "102": {
+                "category": "Mieszkanie",
+                "unit": "36_1",
+                "status": "Wolne",
+                "price": "526 281 zł",
+                "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A2-LM-36_01",
+                "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=123",
+            }
+        }
+        sold = []
+        history = []
+        output = render(registry, sold, history)
+        self.assertIn("<!doctype html>", output)
+        self.assertIn("Rzut PDF", output)
+        self.assertIn("36_1", output)
+
+
 if __name__ == "__main__":
     unittest.main()

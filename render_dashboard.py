@@ -267,13 +267,19 @@ def normalize_offers(
     registry: dict,
     sold: list[dict],
     history: list[dict],
-    events: list[dict],
 ) -> tuple[list[dict], list[dict], list[dict]]:
     """Normalize registry and sold listings, decorating with price delta and status metrics."""
     offers = sorted(registry.values(), key=lambda o: (o.get("category", ""), o.get("unit", "")))
 
+    active_keys = {(o.get("category", ""), o.get("unit", "")) for o in offers}
+    active_urls = {o.get("url") for o in offers if o.get("url") and o.get("url") != "#"}
+
     normalized_sold = []
     for item in sold:
+        key = (item.get("category", ""), item.get("unit", ""))
+        url = item.get("url")
+        if key in active_keys or (url and url in active_urls):
+            continue
         s = dict(item)
         s["status"] = "Sprzedane"
         s["status_kind"] = "sold"
@@ -332,6 +338,7 @@ def build_compact_offers_json(all_offers: list[dict]) -> list[dict]:
             "staircase": o.get("staircase") or "",
             "extras": " · ".join(o.get("extras") or []),
             "url": o.get("url", "#"),
+            "crm_url": o.get("crm_url") or "",
             "has_drop": bool(o.get("has_price_drop")),
             "has_rise": bool(o.get("has_price_rise")),
             "delta_amt": o.get("total_delta_amount"),
@@ -347,13 +354,12 @@ def build_compact_offers_json(all_offers: list[dict]) -> list[dict]:
 
 def build_dashboard_context(
     registry: dict,
-    events: list[dict],
     sold: list[dict],
     history: list[dict],
     styles_css: str,
     app_js: str,
 ) -> dict[str, str]:
-    offers, _normalized_sold, all_offers = normalize_offers(registry, sold, history, events)
+    offers, _normalized_sold, all_offers = normalize_offers(registry, sold, history)
 
     # Flats specific calculations
     flats = [o for o in all_offers if o.get("category") == "Mieszkanie"]
@@ -456,14 +462,13 @@ def build_dashboard_context(
     }
 
 
-def render(registry: dict, events: list[dict], sold: list[dict], history: list[dict]) -> str:
+def render(registry: dict, sold: list[dict], history: list[dict]) -> str:
     html_template = (TEMPLATES_DIR / "dashboard.html").read_text(encoding="utf-8")
     styles_css = (TEMPLATES_DIR / "styles.css").read_text(encoding="utf-8")
     app_js = (TEMPLATES_DIR / "app.js").read_text(encoding="utf-8")
 
     context = build_dashboard_context(
         registry=registry,
-        events=events,
         sold=sold,
         history=history,
         styles_css=styles_css,
@@ -475,15 +480,12 @@ def render(registry: dict, events: list[dict], sold: list[dict], history: list[d
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--registry", default="registry.json")
-    parser.add_argument("--events", default="events.json")
     parser.add_argument("--sold", default="sold_registry.json")
     parser.add_argument("--history", default="history.log")
     parser.add_argument("--out", default="flat-dashboard.html")
     args = parser.parse_args()
 
     registry = json.loads(Path(args.registry).read_text(encoding="utf-8"))
-    events_path = Path(args.events)
-    events = json.loads(events_path.read_text(encoding="utf-8")) if events_path.exists() else []
     sold_path = Path(args.sold)
     sold = json.loads(sold_path.read_text(encoding="utf-8")) if sold_path.exists() else []
     history_path = Path(args.history)
@@ -493,7 +495,7 @@ def main() -> None:
         else []
     )
 
-    out_content = render(registry, events, sold, history)
+    out_content = render(registry, sold, history)
     Path(args.out).write_text(out_content, encoding="utf-8")
     print(f"Rendered dashboard successfully to {args.out}")
 
