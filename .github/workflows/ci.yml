@@ -1,0 +1,24 @@
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run lint and tests
+        run: |
+          uv run --group dev ruff check .
+          uv run --group dev ruff format --check .
+          uv run --group dev ty check .
+          uv run python -m unittest discover tests
