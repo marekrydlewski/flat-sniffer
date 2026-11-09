@@ -48,7 +48,7 @@ def plural_events(count: int) -> str:
     return f"{count} zdarzeń"
 
 
-def event_badge(event_type: str, status: str = "") -> tuple[str, str]:
+def event_badge(event_type: str, status: str = "", is_sold: bool = False) -> tuple[str, str]:
     if event_type == "new_listing":
         is_free = status_kind(status) == "available"
         return ("badge-new", "Nowa oferta" if is_free else "Nowa pozycja")
@@ -57,16 +57,31 @@ def event_badge(event_type: str, status: str = "") -> tuple[str, str]:
     if event_type == "price_change":
         return ("badge-price", "Zmiana ceny")
     if event_type == "removed_from_listing":
+        if is_sold:
+            return ("badge-sold", "Sprzedane")
         return ("badge-removed", "Zniknęło z oferty")
     return ("badge-neutral", event_type.replace("_", " ").title())
 
 
-def event_row_html(event: dict) -> str:
+def event_row_html(
+    event: dict,
+    sold_keys: set[tuple[str, str]] | None = None,
+    sold_urls: set[str] | None = None,
+) -> str:
     event_type = event.get("event", "")
-    badge_cls, badge_text = event_badge(event_type, event.get("status", ""))
     cat = event.get("category", "")
     unit = event.get("unit", "")
     url = event.get("url", "#")
+
+    is_sold = False
+    if event_type == "removed_from_listing":
+        is_sold = bool(
+            (sold_urls and url and url != "#" and url in sold_urls)
+            or (sold_keys and (cat, unit) in sold_keys)
+            or cat == "Mieszkanie"
+        )
+
+    badge_cls, badge_text = event_badge(event_type, event.get("status", ""), is_sold=is_sold)
 
     if event_type == "status_change":
         old_s = event.get("old_status", "")
@@ -101,9 +116,17 @@ def event_row_html(event: dict) -> str:
     elif event_type == "removed_from_listing":
         last_st = event.get("last_status")
         last_info = f" (było: {last_st})" if last_st else ""
-        summary = (
-            f'<span class="text-danger">Usunięto z oferty{html.escape(last_info)} · prawdopodobnie sprzedane</span>'
-        )
+        if is_sold:
+            if last_st and last_st.casefold() != "sprzedane":
+                summary = (
+                    f'<span class="diff-old">{html.escape(last_st)}</span> '
+                    f'<span class="diff-arrow">→</span> '
+                    f'<strong class="diff-new text-danger">Sprzedane</strong>'
+                )
+            else:
+                summary = '<strong class="diff-new text-danger">Sprzedane</strong>'
+        else:
+            summary = f'<span class="text-danger">Usunięto z oferty{html.escape(last_info)}</span>'
     elif event_type == "new_listing":
         st = event.get("status", "Wolne")
         summary = f'<span class="text-green">Pojawiło się w ofercie: {html.escape(st)}</span>'
@@ -128,7 +151,12 @@ def event_row_html(event: dict) -> str:
     </div>"""
 
 
-def build_weekly_changes_html(history: list[dict], weeks_count: int = 12) -> str:
+def build_weekly_changes_html(
+    history: list[dict],
+    weeks_count: int = 12,
+    sold_keys: set[tuple[str, str]] | None = None,
+    sold_urls: set[str] | None = None,
+) -> str:
     """Build clean weekly accordion change log for Block 2."""
     weeks: dict[str, list[dict]] = defaultdict(list)
     for e in history:
@@ -201,7 +229,9 @@ def build_weekly_changes_html(history: list[dict], weeks_count: int = 12) -> str
             chips.append(f'<span class="week-chip chip-neutral">{len(events)} zmian ogółem</span>')
 
         open_attr = " open" if idx == 0 else ""
-        events_rows_html = "".join(event_row_html(e) for e in reversed(events))
+        events_rows_html = "".join(
+            event_row_html(e, sold_keys=sold_keys, sold_urls=sold_urls) for e in reversed(events)
+        )
 
         cards.append(
             f"""<details class="week-card"{open_attr} data-week="{w_key}" data-has-flats="{"true" if has_flats else "false"}">
@@ -387,7 +417,13 @@ def build_dashboard_context(
     parking_active_count = len(parking_active)
 
     compact_offers_json = build_compact_offers_json(all_offers)
-    weekly_changes_html = build_weekly_changes_html(history)
+    sold_urls = {s["url"] for s in sold if isinstance(s.get("url"), str)}
+    sold_keys = {
+        (s["category"], s["unit"])
+        for s in sold
+        if isinstance(s.get("category"), str) and isinstance(s.get("unit"), str)
+    }
+    weekly_changes_html = build_weekly_changes_html(history, sold_keys=sold_keys, sold_urls=sold_urls)
 
     return {
         "styles": styles_css,

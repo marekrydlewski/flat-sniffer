@@ -15,6 +15,7 @@ from price_history import (
 )
 from render_dashboard import (
     build_weekly_changes_html,
+    event_badge,
     event_row_html,
     plural_events,
     status_kind,
@@ -61,6 +62,50 @@ class TestParsersAndFormatters(unittest.TestCase):
         self.assertEqual(plural_events(14), "14 zdarzeń")
         self.assertEqual(plural_events(22), "22 zdarzenia")
         self.assertEqual(plural_events(25), "25 zdarzeń")
+
+    def test_event_badge(self):
+        self.assertEqual(event_badge("new_listing", "Wolne"), ("badge-new", "Nowa oferta"))
+        self.assertEqual(event_badge("new_listing", "Rezerwacja"), ("badge-new", "Nowa pozycja"))
+        self.assertEqual(event_badge("status_change"), ("badge-status", "Zmiana statusu"))
+        self.assertEqual(event_badge("price_change"), ("badge-price", "Zmiana ceny"))
+        self.assertEqual(event_badge("removed_from_listing", is_sold=False), ("badge-removed", "Zniknęło z oferty"))
+        self.assertEqual(event_badge("removed_from_listing", is_sold=True), ("badge-sold", "Sprzedane"))
+
+    def test_event_row_html_sold_and_removed(self):
+        event_flat = {
+            "event": "removed_from_listing",
+            "category": "Mieszkanie",
+            "unit": "34_27",
+            "last_status": "Rezerwacja",
+            "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A1-LM-34_27",
+        }
+        html_flat = event_row_html(event_flat)
+        self.assertIn("badge-sold", html_flat)
+        self.assertIn("Sprzedane", html_flat)
+        self.assertIn("Rezerwacja", html_flat)
+        self.assertIn("diff-arrow", html_flat)
+        self.assertNotIn("prawdopodobnie", html_flat)
+        self.assertNotIn("Zniknęło z oferty", html_flat)
+
+        event_other = {
+            "event": "removed_from_listing",
+            "category": "Komórka",
+            "unit": "KL17",
+            "last_status": "Wolne",
+            "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-KL17",
+        }
+        html_other = event_row_html(event_other)
+        self.assertIn("badge-removed", html_other)
+        self.assertIn("Zniknęło z oferty", html_other)
+        self.assertIn("Usunięto z oferty (było: Wolne)", html_other)
+        self.assertNotIn("prawdopodobnie sprzedane", html_other)
+
+        html_other_sold = event_row_html(
+            event_other,
+            sold_urls={"https://swietegomichala.pl/pl/mieszkanie/SM2-KL17"},
+        )
+        self.assertIn("badge-sold", html_other_sold)
+        self.assertIn("Sprzedane", html_other_sold)
 
 
 class TestPriceHistory(unittest.TestCase):
@@ -298,6 +343,20 @@ class TestCandidatesGapScanning(unittest.TestCase):
         self.assertIn("https://swietegomichala.pl/pl/mieszkanie/SM2-A1-2", res)
         self.assertNotIn("https://swietegomichala.pl/pl/mieszkanie/SM2-A1-1", res)
         self.assertNotIn("https://swietegomichala.pl/pl/mieszkanie/SM2-A1-3", res)
+
+    def test_candidates_includes_history_removed_urls(self):
+        registry = {
+            "1": {"category": "Mieszkanie", "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-A1-1"},
+        }
+        history = [
+            {
+                "event": "removed_from_listing",
+                "category": "Komórka",
+                "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-KL14",
+            }
+        ]
+        res = candidates(registry, history=history)
+        self.assertIn("https://swietegomichala.pl/pl/mieszkanie/SM2-KL14", res)
 
     def test_urls_to_probe_skips_complete_previous(self):
         from scan_sold import urls_to_probe

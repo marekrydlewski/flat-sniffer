@@ -330,7 +330,7 @@ def build_price_history(
                 )
 
             case "removed_from_listing":
-                p.current_status = "Usunięte / Sprzedane"
+                p.current_status = "Sprzedane"
                 p.timeline.append(
                     PricePoint(
                         date=dt,
@@ -338,7 +338,7 @@ def build_price_history(
                         price=e.get("price") or p.last_known_price,
                         price_num=parse_price_num(e.get("price")) or p.last_known_price_num,
                         price_per_m2=p.last_known_price_per_m2,
-                        status="Usunięte / Sprzedane",
+                        status="Sprzedane",
                         event="removed_from_listing",
                     )
                 )
