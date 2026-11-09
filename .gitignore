@@ -6,3 +6,5 @@ __pycache__/
 *.pyc
 .venv/
 .worktrees/
+.ruff_cache/
+.DS_Store
