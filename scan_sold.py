@@ -108,7 +108,10 @@ def build_price_cache(
         if not key or not src:
             return
         entry = cache.setdefault(key, {})
-        for field in ("price", "price_per_m2", "area_m2", "rooms", "floor", "staircase", "extras"):
+        price_val = src.get("price") or src.get("new_price")
+        if price_val:
+            entry["price"] = price_val
+        for field in ("price_per_m2", "area_m2", "rooms", "floor", "staircase", "extras"):
             val = src.get(field)
             if val is not None and val != "":
                 entry[field] = val

@@ -160,6 +160,8 @@ def extract_floor(raw_floor: str | None = None, extras: list[str] | None = None)
     if extras:
         for item in extras:
             low = item.casefold()
+            if low == "parter":
+                return "Parter"
             if "piętro" in low or "parter" in low:
                 return item.strip()
     return None

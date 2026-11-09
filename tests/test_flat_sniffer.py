@@ -689,6 +689,7 @@ class TestUnifiedDataExtraction(unittest.TestCase):
         self.assertEqual(extract_floor(raw_floor="Piętro 4"), "Piętro 4")
         self.assertEqual(extract_floor(extras=["Balkon", "Piętro 2"]), "Piętro 2")
         self.assertEqual(extract_floor(extras=["Ogródek", "Parter"]), "Parter")
+        self.assertEqual(extract_floor(extras=["parter"]), "Parter")
         self.assertIsNone(extract_floor(extras=["Balkon", "Aneks"]))
         self.assertIsNone(extract_floor())
 
@@ -778,7 +779,15 @@ class TestPriceCaching(unittest.TestCase):
                 "category": "Mieszkanie",
                 "unit": "36_2",
                 "price": "600 000 zł",
-            }
+            },
+            {
+                "url": "https://example.com/changed",
+                "category": "Mieszkanie",
+                "unit": "40_5",
+                "event": "price_change",
+                "old_price": "800 000 zł",
+                "new_price": "790 000 zł",
+            },
         ]
         previous = {
             "https://example.com/3": {
@@ -793,6 +802,8 @@ class TestPriceCaching(unittest.TestCase):
         self.assertEqual(cache[("Mieszkanie", "34_1")]["staircase"], "34")
         self.assertEqual(cache["https://example.com/2"]["price"], "600 000 zł")
         self.assertEqual(cache[("Mieszkanie", "36_2")]["price"], "600 000 zł")
+        self.assertEqual(cache["https://example.com/changed"]["price"], "790 000 zł")
+        self.assertEqual(cache[("Mieszkanie", "40_5")]["price"], "790 000 zł")
         self.assertEqual(cache["https://example.com/3"]["price"], "700 000 zł")
 
     def test_flat_sniffer_fetch_all_uses_cached_price(self):
