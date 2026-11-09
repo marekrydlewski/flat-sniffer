@@ -650,18 +650,18 @@
       theadHtml += th('price', 'Cena całkowita');
       theadHtml += th('price_m2', 'Cena za m²');
       theadHtml += th('status', 'Status');
-      theadHtml += '<th role="columnheader">Karta dewelopera</th>';
+      theadHtml += '<th role="columnheader">Karta i rzuty</th>';
     } else if (selectedCategory === 'Komórka') {
       theadHtml += th('unit', 'Nr komórki');
       theadHtml += th('area', 'Metraż');
       theadHtml += th('price', 'Cena');
       theadHtml += th('status', 'Status');
-      theadHtml += '<th role="columnheader">Karta dewelopera</th>';
+      theadHtml += '<th role="columnheader">Karta lokalu</th>';
     } else {
       theadHtml += th('unit', 'Nr miejsca');
       theadHtml += th('price', 'Cena');
       theadHtml += th('status', 'Status');
-      theadHtml += '<th role="columnheader">Karta dewelopera</th>';
+      theadHtml += '<th role="columnheader">Karta lokalu</th>';
     }
     theadHtml += '</tr>';
     headEl.innerHTML = theadHtml;
@@ -677,6 +677,7 @@
       const kind = o.kind || 'available';
       const statusLabel = kind === 'available' ? 'Wolne' : (kind === 'reserved' ? 'Rezerwacja' : 'Sprzedane');
       const url = o.url && o.url !== '#' ? o.url : null;
+      const crmUrl = o.crm_url && o.crm_url !== '#' ? o.crm_url : null;
 
       let priceHtml = escapeHtml(o.price || 'Cena niedostępna');
       if (o.has_drop && o.delta_amt) {
@@ -710,7 +711,15 @@
         tbodyHtml += `<td><span class="status-pill pill-${kind}">${statusLabel}</span></td>`;
       }
 
-      tbodyHtml += `<td>${url ? `<a class="table-btn" href="${escapeHtml(url)}" target="_blank" rel="noreferrer">Karta ↗</a>` : '—'}</td>`;
+      const actions = [];
+      if (url) {
+        actions.push(`<a class="table-btn" href="${escapeHtml(url)}" target="_blank" rel="noreferrer">Karta ↗</a>`);
+      }
+      if (crmUrl) {
+        actions.push(`<a class="table-btn table-btn-pdf" href="${escapeHtml(crmUrl)}" target="_blank" rel="noreferrer" title="Otwórz oficjalny rzut architektoniczny w formacie PDF">📄 Rzut PDF</a>`);
+      }
+      const actionsHtml = actions.length > 0 ? `<div class="table-actions-cell">${actions.join('')}</div>` : '—';
+      tbodyHtml += `<td>${actionsHtml}</td>`;
       tbodyHtml += '</tr>';
     });
 

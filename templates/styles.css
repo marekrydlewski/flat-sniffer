@@ -1325,12 +1325,32 @@ button {
   font-size: 0.78rem;
   font-weight: 600;
   transition: all 0.15s ease;
+  white-space: nowrap;
 }
 .table-btn:hover {
   background-color: var(--primary-subtle);
   border-color: var(--primary-border);
   color: var(--primary);
   text-decoration: none;
+}
+
+.table-actions-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.table-btn-pdf {
+  background-color: var(--primary-subtle);
+  border-color: var(--primary-border);
+  color: var(--primary);
+}
+
+.table-btn-pdf:hover {
+  background-color: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
 }
 
 .table-footer-bar {

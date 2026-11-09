@@ -61,7 +61,7 @@ To prevent scraping failures (e.g. cloudflare blocks, site redesign, network tim
 
 GitHub Actions workflow `.github/workflows/flat-sniffer.yml` orchestrates automation:
 1. Runs daily at 08:00 UTC.
-2. Executes `flat_sniffer.py --quiet --events-out events.json`.
+2. Executes `flat_sniffer.py --quiet`.
 3. Runs `scan_sold.py --out sold_registry.json`.
 4. Commits updated `registry.json`, `history.log`, and `sold_registry.json`.
 5. Builds the availability dashboard via `render_dashboard.py` and deploys it to GitHub Pages.
