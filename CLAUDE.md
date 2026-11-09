@@ -1,31 +1,33 @@
 # CLAUDE.md
 
-Guidance for Claude and AI coding agents working on `flat-sniffer`.
+Essential project context and engineering standards for Claude and AI coding agents working on `flat-sniffer`.
+For autonomous execution workflows (worktree protocol, subagent code reviews, browser testing, PR creation), refer to [`AGENTS.md`](file:///Users/marek/Projects/flat-sniffer/AGENTS.md).
 
 ## Overview
 
-A scraper and dashboard that monitors real-estate availability (flats, parking, storage, garages) on `swietegomichala.pl`, tracks status and price changes against a local JSON registry, and publishes an interactive single-page dashboard.
-
-Detailed technical architecture and safety-gate mechanics are documented in [`docs/architecture.md`](file:///Users/marek/Projects/flat-sniffer/docs/architecture.md).
+A scraper and dashboard that monitors real-estate availability and pricing on `swietegomichala.pl`, diffs against local JSON registries, and compiles an interactive single-page dashboard.
+Architecture details: [`docs/architecture.md`](file:///Users/marek/Projects/flat-sniffer/docs/architecture.md).
 
 ## Essential Commands
 
-The project uses [uv](https://docs.astral.sh/uv/) for execution and tooling.
+The project uses [uv](https://docs.astral.sh/uv/) and [just](https://github.com/casey/just).
 
 ```bash
-# Core execution
-uv run flat_sniffer.py                              # Fetch, diff, print changes, save
-uv run flat_sniffer.py --quiet                       # Run quietly (used by CI)
-uv run flat_sniffer.py --events-out events.json       # Export diff to JSON
-uv run render_dashboard.py                            # Build flat-dashboard.html
-uv run scan_sold.py                                  # Scan for sold listings in numbering gaps
-uv run price_history.py                              # Summarize price adjustments
-
-# Quality & linting (via justfile)
-just check        # Runs ruff check, ruff format --check, and ty check
-just lint         # Ruff linter
+# Quality & testing
+just check        # Runs ruff check, ruff format --check, ty check, and unittests
+just test         # Runs Python test suite only
 just fmt          # Ruff autoformat
 just typecheck    # Type checking with ty
+
+# Execution & compilation
+just dashboard    # Rebuilds flat-dashboard.html
+uv run flat_sniffer.py     # Scrapes active listings, updates registry.json
+uv run scan_sold.py        # Probes numbering gaps for sold listings
+uv run price_history.py    # Summarizes price adjustments
+
+# Worktree management
+just wt-new <name>         # Create isolated worktree from origin/main
+just wt-clean              # Prune stale worktrees
 ```
 
 ## Repository Structure
@@ -45,8 +47,8 @@ just typecheck    # Type checking with ty
 2. **Do Not Over-Engineer**: Prefer simple, idiomatic Python code and standard library primitives. Keep dependencies minimal (`httpx` only).
 3. **Stand-Alone Executability**: Python scripts should declare PEP 723 inline metadata (`# /// script`) where applicable so they remain runnable via `uv run script.py`.
 4. **Data Integrity & Invariants**:
-   - Never change the schema of `registry.json` without updating diffing, formatting, and dashboard rendering.
-   - Writes to `registry.json` must remain atomic (write to temp file then rename).
+   - Never change the schema of `registry.json` or `sold_registry.json` without updating diffing, formatting, and dashboard rendering.
+   - Writes to registries must remain atomic (write to temporary file then rename).
    - Never commit corrupt baseline data; preserve safety gates and anomaly detection.
 5. **Dashboard Architecture**:
    - Maintain static dashboard assets in `templates/` (`styles.css`, `app.js`, `dashboard.html`).
