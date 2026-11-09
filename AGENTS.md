@@ -34,7 +34,7 @@ git fetch origin main
 git worktree add .worktrees/<feature-name> -b <feature-name> origin/main
 cd .worktrees/<feature-name>
 ```
-*(Or use `just wt-new <feature-name>`)*
+*(Or run `just wt-new <feature-name>` from repo root, then `cd .worktrees/<feature-name>`)*
 
 ### Stage 2: Implementation
 - Keep changes minimal and focused on the assigned scope.
@@ -83,8 +83,9 @@ Do not stop to ask "Should I commit?". Autonomously complete the delivery:
    ```bash
    gh pr create --title "<type>: <concise description>" --body "<summary of changes & verification>"
    ```
-4. Once merged, clean up the worktree:
+4. Once merged, return to the repository root and clean up the worktree:
    ```bash
+   cd ../..
    git worktree remove .worktrees/<feature-name>
    ```
 
@@ -97,4 +98,4 @@ Do not stop to ask "Should I commit?". Autonomously complete the delivery:
 | `just check` | Full test and lint suite (Ruff, ty, unittests) |
 | `just dashboard` | Recompile `flat-dashboard.html` |
 | `just wt-new <name>` | Create new isolated worktree from `origin/main` |
-| `just wt-clean` | Prune stale worktrees |
+| `just wt-clean` | Prune metadata for deleted worktrees (`git worktree prune`) |

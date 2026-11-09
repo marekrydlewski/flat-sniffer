@@ -1,12 +1,12 @@
 # CLAUDE.md
 
 Essential project context and engineering standards for Claude and AI coding agents working on `flat-sniffer`.
-For autonomous execution workflows (worktree protocol, subagent code reviews, browser testing, PR creation), refer to [`AGENTS.md`](file:///Users/marek/Projects/flat-sniffer/AGENTS.md).
+For autonomous execution workflows (worktree protocol, subagent code reviews, browser testing, PR creation), refer to [`AGENTS.md`](AGENTS.md).
 
 ## Overview
 
 A scraper and dashboard that monitors real-estate availability and pricing on `swietegomichala.pl`, diffs against local JSON registries, and compiles an interactive single-page dashboard.
-Architecture details: [`docs/architecture.md`](file:///Users/marek/Projects/flat-sniffer/docs/architecture.md).
+Architecture details: [`docs/architecture.md`](docs/architecture.md).
 
 ## Essential Commands
 
@@ -27,7 +27,7 @@ uv run price_history.py    # Summarizes price adjustments
 
 # Worktree management
 just wt-new <name>         # Create isolated worktree from origin/main
-just wt-clean              # Prune stale worktrees
+just wt-clean              # Prune metadata for deleted worktrees
 ```
 
 ## Repository Structure
