@@ -321,7 +321,8 @@
     chartHtml += '</div>';
     labelsHtml += '</div>';
 
-    container.innerHTML = chartHtml + labelsHtml;
+    const minWidthPx = bins.length * 56;
+    container.innerHTML = `<div class="histogram-scroll-inner" style="min-width: max(100%, ${minWidthPx}px);">${chartHtml}${labelsHtml}</div>`;
 
     window._currentHistogramBins = bins;
     updateDrilldownBar();
