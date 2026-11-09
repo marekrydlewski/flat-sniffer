@@ -163,6 +163,15 @@ def fetch_sold(
     return res
 
 
+def active_offer_indices(registry: dict) -> tuple[set[str], set[tuple[str, str]]]:
+    """Return set of active URLs and set of active (category, unit) pairs."""
+    urls = {offer["url"] for offer in registry.values() if offer.get("url")}
+    keys = {
+        (offer["category"], offer["unit"]) for offer in registry.values() if offer.get("category") and offer.get("unit")
+    }
+    return urls, keys
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--registry", default="registry.json")
@@ -184,11 +193,17 @@ def main() -> None:
         else []
     )
 
-    active_urls = {offer["url"] for offer in registry.values()}
+    active_urls, active_keys = active_offer_indices(registry)
     probe_set = urls_to_probe(registry, previous, history=history, refresh_all=args.refresh_all)
 
     # Retain already complete sold records that don't need network probing
-    found = [offer for url, offer in previous.items() if url not in active_urls and url not in probe_set]
+    found = [
+        offer
+        for url, offer in previous.items()
+        if url not in active_urls
+        and (offer.get("category"), offer.get("unit")) not in active_keys
+        and url not in probe_set
+    ]
 
     if probe_set:
         with (
@@ -199,18 +214,22 @@ def main() -> None:
             for future in as_completed(future_to_url):
                 url = future_to_url[future]
                 if offer := future.result():
+                    if offer["url"] in active_urls or (offer.get("category"), offer.get("unit")) in active_keys:
+                        continue
                     prev_info = previous.get(offer["url"], {})
                     offer["detected_at"] = prev_info.get("detected_at", datetime.now(UTC).isoformat())
                     for field in ("price", "area_m2", "rooms", "floor", "staircase", "price_per_m2"):
                         if not offer.get(field) and prev_info.get(field):
                             offer[field] = prev_info[field]
                     found.append(offer)
-                elif url in previous:
-                    print(
-                        f"WARNING: probe failed for previously known sold offer {url}; retaining previous record",
-                        file=sys.stderr,
-                    )
-                    found.append(previous[url])
+                elif url in previous and url not in active_urls:
+                    prev_rec = previous[url]
+                    if (prev_rec.get("category"), prev_rec.get("unit")) not in active_keys:
+                        print(
+                            f"WARNING: probe failed for previously known sold offer {url}; retaining previous record",
+                            file=sys.stderr,
+                        )
+                        found.append(prev_rec)
 
     found.sort(key=lambda o: (o["category"], o["unit"]))
     out_path = Path(args.out)
