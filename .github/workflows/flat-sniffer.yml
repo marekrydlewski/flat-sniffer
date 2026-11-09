@@ -4,6 +4,18 @@ on:
   schedule:
     - cron: "0 8 * * *" # everyday, 08:00 UTC
   workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - "templates/**"
+      - "render_dashboard.py"
+      - "price_history.py"
+      - "registry.json"
+      - "sold_registry.json"
+      - "history.log"
+      - ".github/workflows/flat-sniffer.yml"
+      - "pyproject.toml"
+      - "uv.lock"
 
 concurrency:
   group: flat-sniffer
@@ -30,12 +42,15 @@ jobs:
           python-version: "3.12"
 
       - name: Run flat-sniffer
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: uv run flat_sniffer.py --quiet --events-out events.json
 
       - name: Update known sold offers
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: uv run scan_sold.py --out sold_registry.json
 
       - name: Commit updated registry
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
           git config user.name "flat-sniffer-bot"
           git config user.email "actions@users.noreply.github.com"
@@ -44,15 +59,18 @@ jobs:
           git push
 
       - name: Open issue if something changed
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          count=$(python3 -c 'import json; print(len(json.load(open("events.json"))))')
-          if [ "$count" != "0" ]; then
-            uv run format_issue.py events.json > issue_body.md
-            gh issue create --title "flat-sniffer: $(date -u +%Y-%m-%d) - $count change(s)" --body-file issue_body.md
-          else
-            echo "No changes, skipping issue."
+          if [ -f events.json ]; then
+            count=$(python3 -c 'import json; print(len(json.load(open("events.json"))))')
+            if [ "$count" != "0" ]; then
+              uv run format_issue.py events.json > issue_body.md
+              gh issue create --title "flat-sniffer: $(date -u +%Y-%m-%d) - $count change(s)" --body-file issue_body.md
+            else
+              echo "No changes, skipping issue."
+            fi
           fi
 
       - name: Fetch dashboard history from issues
@@ -63,6 +81,7 @@ jobs:
       - name: Build availability dashboard
         run: |
           mkdir -p site
+          [ -f events.json ] || echo "[]" > events.json
           uv run render_dashboard.py --events events.json --sold sold_registry.json --issue-history issue-history.json --history history.log --out site/index.html
 
       - name: Upload availability dashboard
@@ -85,7 +104,7 @@ jobs:
         uses: actions/deploy-pages@v4
 
       - name: Notify on failure
-        if: failure() || cancelled()
+        if: (failure() || cancelled()) && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
