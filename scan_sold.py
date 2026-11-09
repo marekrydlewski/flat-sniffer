@@ -7,6 +7,7 @@
 import argparse
 import json
 import re
+import sys
 import unicodedata
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
@@ -53,6 +54,26 @@ def candidates(registry: dict, previous: dict | None = None) -> set[str]:
         result.update(previous.keys())
     result.difference_update(offer["url"] for offer in registry.values())
     return result
+
+
+def urls_to_probe(registry: dict, previous: dict | None = None, refresh_all: bool = False) -> set[str]:
+    """Determine which candidate URLs need network probing, skipping already complete records."""
+    all_candidates = candidates(registry, previous)
+    if refresh_all:
+        return all_candidates
+
+    prev_map = previous or {}
+    to_probe = set()
+    for url in all_candidates:
+        prev = prev_map.get(url)
+        if (
+            not prev
+            or not prev.get("price")
+            or (prev.get("category") == "Mieszkanie" and (not prev.get("area_m2") or not prev.get("price_per_m2")))
+        ):
+            to_probe.add(url)
+
+    return to_probe
 
 
 def fetch_sold(
@@ -133,6 +154,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--registry", default="registry.json")
     parser.add_argument("--out", default="sold_registry.json")
+    parser.add_argument("--refresh-all", action="store_true", help="force re-fetching all sold offers")
     args = parser.parse_args()
     registry = json.loads(Path(args.registry).read_text(encoding="utf-8"))
     previous_path = Path(args.out)
@@ -141,22 +163,35 @@ def main() -> None:
         if previous_path.exists()
         else {}
     )
-    found = []
-    with (
-        httpx.Client(headers={"User-Agent": USER_AGENT}) as client,
-        ThreadPoolExecutor(max_workers=8) as executor,
-    ):
-        futures = [
-            executor.submit(fetch_sold, url, client, previous.get(url)) for url in candidates(registry, previous)
-        ]
-        for future in as_completed(futures):
-            if offer := future.result():
-                prev_info = previous.get(offer["url"], {})
-                offer["detected_at"] = prev_info.get("detected_at", datetime.now(UTC).isoformat())
-                for field in ("price", "area_m2", "rooms", "floor", "staircase", "price_per_m2"):
-                    if not offer.get(field) and prev_info.get(field):
-                        offer[field] = prev_info[field]
-                found.append(offer)
+
+    active_urls = {offer["url"] for offer in registry.values()}
+    probe_set = urls_to_probe(registry, previous, refresh_all=args.refresh_all)
+
+    # Retain already complete sold records that don't need network probing
+    found = [offer for url, offer in previous.items() if url not in active_urls and url not in probe_set]
+
+    if probe_set:
+        with (
+            httpx.Client(headers={"User-Agent": USER_AGENT}) as client,
+            ThreadPoolExecutor(max_workers=8) as executor,
+        ):
+            future_to_url = {executor.submit(fetch_sold, url, client, previous.get(url)): url for url in probe_set}
+            for future in as_completed(future_to_url):
+                url = future_to_url[future]
+                if offer := future.result():
+                    prev_info = previous.get(offer["url"], {})
+                    offer["detected_at"] = prev_info.get("detected_at", datetime.now(UTC).isoformat())
+                    for field in ("price", "area_m2", "rooms", "floor", "staircase", "price_per_m2"):
+                        if not offer.get(field) and prev_info.get(field):
+                            offer[field] = prev_info[field]
+                    found.append(offer)
+                elif url in previous:
+                    print(
+                        f"WARNING: probe failed for previously known sold offer {url}; retaining previous record",
+                        file=sys.stderr,
+                    )
+                    found.append(previous[url])
+
     found.sort(key=lambda o: (o["category"], o["unit"]))
     out_path = Path(args.out)
     tmp_path = out_path.with_suffix(".json.tmp")
