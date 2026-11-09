@@ -139,6 +139,51 @@ def _norm(s: str) -> str:
     return unicodedata.normalize("NFC", s.strip())
 
 
+def derive_staircase(unit: str | None, category: str | None = None) -> str | None:
+    """Derive staircase identifier from flat unit (e.g. '34_12' -> '34')."""
+    if category is not None and category != "Mieszkanie":
+        return None
+    if unit and "_" in unit:
+        return unit.split("_")[0]
+    return None
+
+
+def extract_floor(raw_floor: str | None = None, extras: list[str] | None = None) -> str | None:
+    """Normalize floor string or extract floor from extras list."""
+    if raw_floor:
+        cleaned = raw_floor.strip()
+        if cleaned.casefold() == "parter":
+            return "Parter"
+        if cleaned.isdigit():
+            return f"Piętro {cleaned}"
+        return cleaned
+    if extras:
+        for item in extras:
+            low = item.casefold()
+            if "piętro" in low or "parter" in low:
+                return item.strip()
+    return None
+
+
+def enrich_offer_metadata(offer: dict) -> dict:
+    """Enrich offer in-place with standardized floor and staircase."""
+    cat = offer.get("category", "")
+    unit = str(offer.get("unit") or "")
+    extras = offer.get("extras") or []
+
+    if cat == "Mieszkanie":
+        if not offer.get("staircase"):
+            staircase = derive_staircase(unit, cat)
+            if staircase:
+                offer["staircase"] = staircase
+        if not offer.get("floor"):
+            fl = extract_floor(extras=extras)
+            if fl:
+                offer["floor"] = fl
+
+    return offer
+
+
 def parse_offers(html: str) -> tuple[list[dict], int]:
     """Returns (parsed offers, number of listing chunks that failed to parse)."""
     chunks = re.split(r'(?=<a class="target-row)', html)
@@ -158,26 +203,29 @@ def parse_offers(html: str) -> tuple[list[dict], int]:
         if dodatkowe_m:
             extras = [e.strip() for e in EXTRA_ITEM_RE.findall(dodatkowe_m.group("body"))]
 
-        offers.append(
-            {
-                "id": head.group("id"),
-                "url": head.group("href"),
-                "crm_url": head.group("pdf") or None,
-                "status": _norm(status.group("status")),
-                "status_color": head.group("color"),
-                "category": _norm(status.group("category")),
-                "unit": _norm(status.group("unit")),
-                **{key: _opt_group(regex.search(chunk)) for key, regex in OPTIONAL_FIELD_RES.items()},
-                "extras": extras,
-            }
-        )
+        offer = {
+            "id": head.group("id"),
+            "url": head.group("href"),
+            "crm_url": head.group("pdf") or None,
+            "status": _norm(status.group("status")),
+            "status_color": head.group("color"),
+            "category": _norm(status.group("category")),
+            "unit": _norm(status.group("unit")),
+            **{key: _opt_group(regex.search(chunk)) for key, regex in OPTIONAL_FIELD_RES.items()},
+            "extras": extras,
+        }
+        enrich_offer_metadata(offer)
+        offers.append(offer)
     return offers, failed
 
 
 PARSE_FAILURE_RATIO = 0.1  # abort if >=10% of a category's listing chunks fail to parse
 
 
-def fetch_all() -> tuple[dict[str, dict], list[str]]:
+def fetch_all(
+    old_registry: dict | None = None,
+    refresh_prices: bool = False,
+) -> tuple[dict[str, dict], list[str]]:
     registry = {}
     problems = []
     for id_typ, label in CATEGORIES.items():
@@ -210,6 +258,15 @@ def fetch_all() -> tuple[dict[str, dict], list[str]]:
             registry[o["id"]] = o
 
     missing = [o for o in registry.values() if not o.get("price") and o.get("id")]
+    if missing and old_registry and not refresh_prices:
+        for o in missing:
+            old_o = old_registry.get(o["id"])
+            if old_o and old_o.get("price") and old_o.get("status") == o.get("status"):
+                o["price"] = old_o["price"]
+                if old_o.get("price_per_m2") and not o.get("price_per_m2"):
+                    o["price_per_m2"] = old_o["price_per_m2"]
+        missing = [o for o in registry.values() if not o.get("price") and o.get("id")]
+
     if missing:
         with (
             httpx.Client(headers={"User-Agent": USER_AGENT}) as client,
@@ -461,6 +518,11 @@ def main():
         help="write the change-events list as JSON to PATH (for CI consumption)",
     )
     parser.add_argument(
+        "--refresh-prices",
+        action="store_true",
+        help="force re-fetching prices via HTTP instead of reusing known prices from previous registry",
+    )
+    parser.add_argument(
         "--force",
         action="store_true",
         help=(
@@ -474,7 +536,7 @@ def main():
     old_registry = load_registry()
     first_run = not old_registry
 
-    new_registry, parse_problems = fetch_all()
+    new_registry, parse_problems = fetch_all(old_registry=old_registry, refresh_prices=args.refresh_prices)
 
     problems = parse_problems + sanity_check(old_registry, new_registry)
     if problems and not args.force:

@@ -668,5 +668,173 @@ class TestScanSoldDeduplication(unittest.TestCase):
         self.assertEqual(retained[0]["unit"], "B.2")
 
 
+class TestUnifiedDataExtraction(unittest.TestCase):
+    def test_derive_staircase(self):
+        from flat_sniffer import derive_staircase
+
+        self.assertEqual(derive_staircase("34_12", "Mieszkanie"), "34")
+        self.assertEqual(derive_staircase("36_1", "Mieszkanie"), "36")
+        self.assertEqual(derive_staircase("38_10"), "38")
+        self.assertIsNone(derive_staircase("G-01", "Garaż"))
+        self.assertIsNone(derive_staircase("KL1", "Komórka"))
+        self.assertIsNone(derive_staircase("single"))
+        self.assertIsNone(derive_staircase(None))
+
+    def test_extract_floor(self):
+        from flat_sniffer import extract_floor
+
+        self.assertEqual(extract_floor(raw_floor="parter"), "Parter")
+        self.assertEqual(extract_floor(raw_floor="PARTER"), "Parter")
+        self.assertEqual(extract_floor(raw_floor="3"), "Piętro 3")
+        self.assertEqual(extract_floor(raw_floor="Piętro 4"), "Piętro 4")
+        self.assertEqual(extract_floor(extras=["Balkon", "Piętro 2"]), "Piętro 2")
+        self.assertEqual(extract_floor(extras=["Ogródek", "Parter"]), "Parter")
+        self.assertIsNone(extract_floor(extras=["Balkon", "Aneks"]))
+        self.assertIsNone(extract_floor())
+
+    def test_enrich_offer_metadata(self):
+        from flat_sniffer import enrich_offer_metadata
+
+        flat = {
+            "category": "Mieszkanie",
+            "unit": "34_05",
+            "extras": ["Balkon", "Piętro 1"],
+        }
+        enrich_offer_metadata(flat)
+        self.assertEqual(flat["staircase"], "34")
+        self.assertEqual(flat["floor"], "Piętro 1")
+
+        # Does not overwrite existing attributes
+        flat2 = {
+            "category": "Mieszkanie",
+            "unit": "34_05",
+            "staircase": "Custom",
+            "floor": "Custom Floor",
+            "extras": ["Parter"],
+        }
+        enrich_offer_metadata(flat2)
+        self.assertEqual(flat2["staircase"], "Custom")
+        self.assertEqual(flat2["floor"], "Custom Floor")
+
+        # Non-flat ignored
+        garage = {"category": "Garaż", "unit": "34_G1"}
+        enrich_offer_metadata(garage)
+        self.assertNotIn("staircase", garage)
+        self.assertNotIn("floor", garage)
+
+    def test_scan_sold_extras_and_staircase_derivation(self):
+        from unittest.mock import MagicMock
+
+        from scan_sold import fetch_sold
+
+        html = """
+        <h2 class="h1">Mieszkanie 36_09</h2>
+        <span class="text-danger text-uppercase">Sprzedane</span>
+        <h4 class="mb-0 text-black">650 000 zł</h4>
+        <table class="offers-data">
+            <tr><td>Powierzchnia</td><th class="text-right">50,00 m<sup>2</sup></th></tr>
+            <tr><td>Pokoje</td><th class="text-right">2</th></tr>
+            <tr><td>Balkon</td><th class="text-right">5,2 m<sup>2</sup></th></tr>
+            <tr><td>Ogród</td><th class="text-right">20 m<sup>2</sup></th></tr>
+        </table>
+        piętro 2
+        """
+        mock_resp = MagicMock()
+        mock_resp.text = html
+        mock_resp.raise_for_status = MagicMock()
+
+        mock_client = MagicMock()
+        mock_client.get.return_value = mock_resp
+
+        offer = fetch_sold("https://example.com/flat", client=mock_client)
+        self.assertIsNotNone(offer)
+        assert offer is not None
+        self.assertEqual(offer["category"], "Mieszkanie")
+        self.assertEqual(offer["unit"], "36_09")
+        self.assertEqual(offer["staircase"], "36")
+        self.assertEqual(offer["floor"], "Piętro 2")
+        self.assertEqual(sorted(offer.get("extras", [])), ["Balkon", "Ogród"])
+
+
+class TestPriceCaching(unittest.TestCase):
+    def test_build_price_cache_in_scan_sold(self):
+        from scan_sold import build_price_cache
+
+        registry = {
+            "1": {
+                "url": "https://example.com/1",
+                "category": "Mieszkanie",
+                "unit": "34_1",
+                "price": "500 000 zł",
+                "price_per_m2": "10 000 zł/m²",
+                "staircase": "34",
+                "floor": "Parter",
+                "extras": ["Ogródek"],
+            }
+        }
+        history = [
+            {
+                "url": "https://example.com/2",
+                "category": "Mieszkanie",
+                "unit": "36_2",
+                "price": "600 000 zł",
+            }
+        ]
+        previous = {
+            "https://example.com/3": {
+                "category": "Mieszkanie",
+                "unit": "38_3",
+                "price": "700 000 zł",
+            }
+        }
+
+        cache = build_price_cache(registry, previous=previous, history=history)
+        self.assertEqual(cache["https://example.com/1"]["price"], "500 000 zł")
+        self.assertEqual(cache[("Mieszkanie", "34_1")]["staircase"], "34")
+        self.assertEqual(cache["https://example.com/2"]["price"], "600 000 zł")
+        self.assertEqual(cache[("Mieszkanie", "36_2")]["price"], "600 000 zł")
+        self.assertEqual(cache["https://example.com/3"]["price"], "700 000 zł")
+
+    def test_flat_sniffer_fetch_all_uses_cached_price(self):
+        from unittest.mock import patch
+
+        from flat_sniffer import fetch_all
+
+        mock_registry_html = """
+        <a class="target-row border-success " href="/pl/mieszkanie/100" data-id="100" data-pdf="">
+            <div class="text-uppercase">Rezerwacja</div>
+            <div class="h4 fs-20 m-0 text-dark">Mieszkanie</div>
+            <div class="h4 fs-20 text-primary">34_15</div>
+        </a>
+        """
+        old_reg = {
+            "100": {
+                "id": "100",
+                "status": "Rezerwacja",
+                "price": "550 000 zł",
+                "price_per_m2": "12 000 zł/m²",
+                "category": "Mieszkanie",
+                "unit": "34_15",
+                "url": "/offer/100",
+            }
+        }
+
+        with (
+            patch("flat_sniffer.fetch", return_value=mock_registry_html),
+            patch("flat_sniffer.fetch_offer_price") as mock_fetch_price,
+        ):
+            # With price caching: fetch_offer_price should NOT be called
+            reg, _ = fetch_all(old_registry=old_reg, refresh_prices=False)
+            self.assertEqual(reg["100"]["price"], "550 000 zł")
+            self.assertEqual(reg["100"]["price_per_m2"], "12 000 zł/m²")
+            mock_fetch_price.assert_not_called()
+
+            # With refresh_prices=True: fetch_offer_price SHOULD be called
+            mock_fetch_price.return_value = ("560 000 zł", "12 200 zł/m²")
+            reg_refreshed, _ = fetch_all(old_registry=old_reg, refresh_prices=True)
+            mock_fetch_price.assert_called_once()
+            self.assertEqual(reg_refreshed["100"]["price"], "560 000 zł")
+
+
 if __name__ == "__main__":
     unittest.main()

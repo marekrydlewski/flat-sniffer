@@ -15,7 +15,13 @@ from pathlib import Path
 
 import httpx
 
-from flat_sniffer import USER_AGENT, fetch_offer_price
+from flat_sniffer import (
+    USER_AGENT,
+    derive_staircase,
+    enrich_offer_metadata,
+    extract_floor,
+    fetch_offer_price,
+)
 
 STATUS_RE = re.compile(r'text-(?:success|danger|warning)[^"]*text-uppercase">\s*([^<]+?)\s*<', re.DOTALL)
 TITLE_RE = re.compile(r"<h2[^>]*>(?P<title>.*?)</h2>", re.DOTALL)
@@ -29,6 +35,7 @@ AREA_RE = re.compile(
 ROOMS_RE = re.compile(r"Pokoje\s*</td>\s*<th[^>]*>\s*(\d+)", re.DOTALL | re.IGNORECASE)
 FLOOR_RE = re.compile(r"pi[eę]tro(?:\s*[:=])?\s*(-?\d+|\bparter\b)", re.DOTALL | re.IGNORECASE)
 STAIRCASE_RE = re.compile(r"Klatka\s*([A-Za-z0-9_-]+)", re.DOTALL | re.IGNORECASE)
+EXTRAS_RE = re.compile(r"<td>\s*(Ogród|Ogródek|Balkon|Loggia|Taras)\s*</td>", re.IGNORECASE)
 
 
 def candidates(
@@ -89,6 +96,51 @@ def urls_to_probe(
     return to_probe
 
 
+def build_price_cache(
+    registry: dict,
+    previous: dict | None = None,
+    history: list[dict] | None = None,
+) -> dict[str | tuple[str, str], dict]:
+    """Build price and metadata cache keyed by URL and (category, unit) tuple."""
+    cache: dict[str | tuple[str, str], dict] = {}
+
+    def _record(key: str | tuple[str, str] | None, src: dict) -> None:
+        if not key or not src:
+            return
+        entry = cache.setdefault(key, {})
+        for field in ("price", "price_per_m2", "area_m2", "rooms", "floor", "staircase", "extras"):
+            val = src.get(field)
+            if val is not None and val != "":
+                entry[field] = val
+
+    if history:
+        for event in history:
+            url = event.get("url")
+            cat = event.get("category")
+            unit = event.get("unit")
+            _record(url, event)
+            if cat and unit:
+                _record((cat, unit), event)
+
+    for offer in registry.values():
+        url = offer.get("url")
+        cat = offer.get("category")
+        unit = offer.get("unit")
+        _record(url, offer)
+        if cat and unit:
+            _record((cat, unit), offer)
+
+    if previous:
+        for url, offer in previous.items():
+            cat = offer.get("category")
+            unit = offer.get("unit")
+            _record(url, offer)
+            if cat and unit:
+                _record((cat, unit), offer)
+
+    return cache
+
+
 def fetch_sold(
     url: str,
     client: httpx.Client | None = None,
@@ -106,9 +158,14 @@ def fetch_sold(
     title = TITLE_RE.search(response.text)
     if not status or not title or status.group(1).strip().casefold() != "sprzedane":
         return None
-    title_parts = [re.sub(r"\s+", " ", part).strip() for part in re.split(r"\s{2,}", title.group("title").strip())]
+    raw_title = title.group("title").strip()
+    title_parts = [re.sub(r"\s+", " ", part).strip() for part in re.split(r"\s{2,}", raw_title)]
     if len(title_parts) < 2:
-        return None
+        parts = raw_title.rsplit(maxsplit=1)
+        if len(parts) == 2:
+            title_parts = parts
+        else:
+            return None
 
     prev = prev_info or {}
     price_match = PRICE_RE.search(response.text)
@@ -135,6 +192,12 @@ def fetch_sold(
     category = unicodedata.normalize("NFC", title_parts[0])
     unit = unicodedata.normalize("NFC", title_parts[-1])
 
+    extras = list(prev.get("extras") or [])
+    for extra_m in EXTRAS_RE.finditer(response.text):
+        extra_name = extra_m.group(1).strip().capitalize()
+        if extra_name not in extras:
+            extras.append(extra_name)
+
     res = {
         "category": category,
         "unit": unit,
@@ -149,17 +212,20 @@ def fetch_sold(
         if rooms_match:
             res["rooms"] = rooms_match.group(1).strip()
         if floor_match:
-            raw_fl = floor_match.group(1).strip()
-            if raw_fl.casefold() == "parter":
-                res["floor"] = "Parter"
-            elif raw_fl.isdigit():
-                res["floor"] = f"Piętro {raw_fl}"
-            else:
-                res["floor"] = raw_fl
-        if staircase_match:
-            res["staircase"] = staircase_match.group(1).strip()
+            res["floor"] = extract_floor(raw_floor=floor_match.group(1).strip())
+        staircase = staircase_match.group(1).strip() if staircase_match else derive_staircase(unit, category)
+        if staircase:
+            res["staircase"] = staircase
         if price_per_m2:
             res["price_per_m2"] = price_per_m2
+        if extras:
+            res["extras"] = extras
+
+    enrich_offer_metadata(res)
+    for field in ("price", "area_m2", "rooms", "floor", "staircase", "price_per_m2", "extras"):
+        if not res.get(field) and prev.get(field):
+            res[field] = prev[field]
+
     return res
 
 
@@ -194,11 +260,12 @@ def main() -> None:
     )
 
     active_urls, active_keys = active_offer_indices(registry)
+    price_cache = build_price_cache(registry, previous=previous, history=history)
     probe_set = urls_to_probe(registry, previous, history=history, refresh_all=args.refresh_all)
 
     # Retain already complete sold records that don't need network probing
     found = [
-        offer
+        enrich_offer_metadata(dict(offer))
         for url, offer in previous.items()
         if url not in active_urls
         and (offer.get("category"), offer.get("unit")) not in active_keys
@@ -210,20 +277,33 @@ def main() -> None:
             httpx.Client(headers={"User-Agent": USER_AGENT}) as client,
             ThreadPoolExecutor(max_workers=8) as executor,
         ):
-            future_to_url = {executor.submit(fetch_sold, url, client, previous.get(url)): url for url in probe_set}
+            future_to_url = {
+                executor.submit(
+                    fetch_sold,
+                    url,
+                    client,
+                    price_cache.get(url) or previous.get(url),
+                ): url
+                for url in probe_set
+            }
             for future in as_completed(future_to_url):
                 url = future_to_url[future]
                 if offer := future.result():
                     if offer["url"] in active_urls or (offer.get("category"), offer.get("unit")) in active_keys:
                         continue
-                    prev_info = previous.get(offer["url"], {})
+                    cached_by_url = price_cache.get(offer["url"]) or previous.get(offer["url"], {})
+                    unit_key = (offer.get("category"), offer.get("unit"))
+                    cached_by_unit = price_cache.get(unit_key, {})
+                    prev_info = {**cached_by_unit, **cached_by_url}
+
                     offer["detected_at"] = prev_info.get("detected_at", datetime.now(UTC).isoformat())
-                    for field in ("price", "area_m2", "rooms", "floor", "staircase", "price_per_m2"):
+                    for field in ("price", "area_m2", "rooms", "floor", "staircase", "price_per_m2", "extras"):
                         if not offer.get(field) and prev_info.get(field):
                             offer[field] = prev_info[field]
+                    enrich_offer_metadata(offer)
                     found.append(offer)
                 elif url in previous and url not in active_urls:
-                    prev_rec = previous[url]
+                    prev_rec = enrich_offer_metadata(dict(previous[url]))
                     if (prev_rec.get("category"), prev_rec.get("unit")) not in active_keys:
                         print(
                             f"WARNING: probe failed for previously known sold offer {url}; retaining previous record",

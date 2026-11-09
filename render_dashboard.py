@@ -9,6 +9,7 @@ from collections import Counter, defaultdict
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from flat_sniffer import enrich_offer_metadata
 from price_history import build_price_history, format_amount, parse_area_num, parse_price_num
 
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
@@ -284,24 +285,13 @@ def normalize_offers(
         s["status"] = "Sprzedane"
         s["status_kind"] = "sold"
         s["group"] = group_name(s.get("category", ""))
-        if s.get("category") == "Mieszkanie" and not s.get("staircase"):
-            unit = str(s.get("unit") or "")
-            if "_" in unit:
-                s["staircase"] = unit.split("_")[0]
+        enrich_offer_metadata(s)
         normalized_sold.append(s)
 
     for o in offers:
         o["status_kind"] = status_kind(o.get("status", ""))
         o["group"] = group_name(o.get("category", ""))
-        if o.get("area_m2"):
-            extras = o.get("extras") or []
-            floor_extra = [x for x in extras if "piętro" in x.casefold() or "parter" in x.casefold()]
-            if floor_extra and not o.get("floor"):
-                o["floor"] = floor_extra[0]
-        if o.get("category") == "Mieszkanie" and not o.get("staircase"):
-            unit = str(o.get("unit") or "")
-            if "_" in unit:
-                o["staircase"] = unit.split("_")[0]
+        enrich_offer_metadata(o)
 
     all_offers = offers + normalized_sold
 
