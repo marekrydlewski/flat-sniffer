@@ -2121,6 +2121,20 @@
     "unit": "KL19",
     "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-KL19"
   },
+  "373": {
+    "area_m2": null,
+    "category": "Komórka",
+    "crm_url": "https://crm.konimpex-invest.pl/scripts/ShowProduct.ashx?key=7acf2314-5c20-47e3-b665-a2d510da77b6&ID_Product=242",
+    "extras": [],
+    "id": "373",
+    "price": "15 000 zł",
+    "price_per_m2": null,
+    "rooms": null,
+    "status": "Wolne",
+    "status_color": "primary",
+    "unit": "KL20",
+    "url": "https://swietegomichala.pl/pl/mieszkanie/SM2-KL20"
+  },
   "374": {
     "area_m2": null,
     "category": "Komórka",
